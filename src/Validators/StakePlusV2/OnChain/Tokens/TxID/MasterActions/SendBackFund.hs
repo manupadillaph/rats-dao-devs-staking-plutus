@@ -190,7 +190,7 @@ validateMasterSendBackFund !pParams !ctx !redeemer !inputs_TxOut_Values_And_Datu
                 -- if haverstIsWithoutTokenName then
                 --     sendBackFundAmountForMaster == getBackFundAmount_Calculated_From_Diff_PoolDatum && value_For_PoolDatum_Real == value_For_PoolDatum_Control
                 -- else
-                Helpers.valueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
+                Helpers.unsafeValueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
 
 --------------------------------------------------------------------------------
 

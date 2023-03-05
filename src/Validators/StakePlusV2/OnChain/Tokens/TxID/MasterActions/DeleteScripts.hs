@@ -201,7 +201,7 @@ validateMasterDeleteScripts pParams txID_Master_AddScripts_CS ctx redeemer input
                 !value_For_PoolDatum_Control = value_In_PoolDatum <> value_For_Mint_TxID_Master_DeleteScripts
                 !value_For_PoolDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_PoolDatum
             in  
-                Helpers.valueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
+                Helpers.unsafeValueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
 
 ----------------------------------------------------------------------------------
 

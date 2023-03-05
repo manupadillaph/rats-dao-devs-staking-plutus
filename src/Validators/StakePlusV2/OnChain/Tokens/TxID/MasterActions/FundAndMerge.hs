@@ -159,7 +159,7 @@ validateMasterFundAndMerge !pParams !txID_Master_Fund_CS !ctx !redeemer !inputs_
                 !value_For_PoolDatum_Control = value_In_PoolDatum
                 !value_For_PoolDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_PoolDatum
             in
-                Helpers.valueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
+                Helpers.unsafeValueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
         ------------------
         correctOutput_FundDatum_WithNewFundAmountAndMerging :: Bool
         !correctOutput_FundDatum_WithNewFundAmountAndMerging =  
@@ -200,7 +200,7 @@ validateMasterFundAndMerge !pParams !txID_Master_Fund_CS !ctx !redeemer !inputs_
             ------------------
                 !value_For_FundDatum_Control = value_FundAmount <> value_In_FundDatum_To_Merge <> value_For_Mint_TxID_Master_FundAndMerge  
             in
-                Helpers.valueEqualsValue value_For_FundDatum_Real value_For_FundDatum_Control
+                Helpers.unsafeValueEqualsValue value_For_FundDatum_Real value_For_FundDatum_Control
 
 --------------------------------------------------------------------------------
 

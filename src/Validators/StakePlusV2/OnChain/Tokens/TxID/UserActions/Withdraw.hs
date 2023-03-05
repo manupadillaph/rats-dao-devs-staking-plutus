@@ -213,7 +213,7 @@ validateUserWithdraw !pParams !txID_Master_Fund_CS !txID_User_Deposit_CS !txID_U
                         ---------------------
                             !value_For_PoolDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_PoolDatum
                         in
-                            Helpers.valueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
+                            Helpers.unsafeValueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
                 in
                     traceIfFalse "WIO" correctIO &&
                     traceIfFalse "FCNZ" isFundCountZero &&
@@ -264,7 +264,7 @@ validateUserWithdraw !pParams !txID_Master_Fund_CS !txID_User_Deposit_CS !txID_U
                         ---------------------
                             !value_For_FundDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_FundDatum
                         in
-                            Helpers.valueEqualsValue value_For_FundDatum_Real value_For_FundDatum_Control
+                            Helpers.unsafeValueEqualsValue value_For_FundDatum_Real value_For_FundDatum_Control
                 in
                     traceIfFalse "WIO" correctIO &&
                     traceIfFalse "FD" correctOutput_FundDatum_NotChanged && 

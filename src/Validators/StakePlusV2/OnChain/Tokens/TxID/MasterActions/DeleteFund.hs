@@ -159,7 +159,7 @@ validateMasterDeleteFund !pParams !txID_Master_Fund_CS !ctx !redeemer !inputs_Tx
                 !value_For_PoolDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_PoolDatum
             in
                 
-                Helpers.valueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control 
+                Helpers.unsafeValueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control 
 
 -- --------------------------------------------------------------------------------
 

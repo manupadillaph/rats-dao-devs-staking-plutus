@@ -151,7 +151,7 @@ validateMasterFund !pParams !ctx !redeemer !inputs_TxOut_Values_And_Datums !outp
                 !value_For_PoolDatum_Control = OnChainNFTHelpers.getTxOut_Value input_TxOut_Value_And_PoolDatum
                 !value_For_PoolDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_PoolDatum
             in  
-                Helpers.valueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
+                Helpers.unsafeValueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
         ------------------
         correctOutput_FundDatum_New :: Bool
         !correctOutput_FundDatum_New =
@@ -207,7 +207,7 @@ validateMasterFund !pParams !ctx !redeemer !inputs_TxOut_Values_And_Datums !outp
             ------------------
                 !value_For_FundDatum_Control =  value_FundAmount <> value_For_Mint_FundID  <> valueMinAda
             in
-                Helpers.valueEqualsValue value_For_FundDatum_Real value_For_FundDatum_Control
+                Helpers.unsafeValueEqualsValue value_For_FundDatum_Real value_For_FundDatum_Control
 
 --------------------------------------------------------------------------------
 

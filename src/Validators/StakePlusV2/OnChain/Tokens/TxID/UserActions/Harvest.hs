@@ -196,10 +196,10 @@ validateUserHarvest !pParams !txID_Master_Fund_CS !txID_User_Deposit_CS !ctx !re
                 &&
                 all (
                     \(v, d) ->
-                        -- isJust (find (\(v', d') ->   d == d' && Helpers.valueEqualsValue v v' ) outputs_TxOuts_Values_And_FundDatums_Ordered)
+                        -- isJust (find (\(v', d') ->   d == d' && Helpers.unsafeValueEqualsValue v v' ) outputs_TxOuts_Values_And_FundDatums_Ordered)
                         any (
                             \(v', d') ->
-                                d == d' && Helpers.valueEqualsValue v v'
+                                d == d' && Helpers.unsafeValueEqualsValue v v'
                             ) outputs_TxOuts_Values_And_FundDatums_Ordered
                 ) calculated_TxOuts_Values_And_FundDatums_Ordered
         ------------------
@@ -231,7 +231,7 @@ validateUserHarvest !pParams !txID_Master_Fund_CS !txID_User_Deposit_CS !ctx !re
             ------------------
                 !value_For_UserDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_UserDatum
             in
-                Helpers.valueEqualsValue value_For_UserDatum_Real value_For_UserDatum_Control
+                Helpers.unsafeValueEqualsValue value_For_UserDatum_Real value_For_UserDatum_Control
 
 --------------------------------------------------------------------------------
 

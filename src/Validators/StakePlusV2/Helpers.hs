@@ -517,12 +517,6 @@ createValueAddingTokensOfCurrencySymbol !ac !cs !acIsWithoutTokenName !value !ca
         in
             sumarTokens tokenOfCurrencySymbol_Ordered cantidad
 
-------------------------------------------------------------------------------------------------
-
-{-# INLINABLE unsafeValueIncludesValue #-}
-unsafeValueIncludesValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
-unsafeValueIncludesValue val val' =
-  TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData val) == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData val')
 
 ------------------------------------------------------------------------------------------------
 
@@ -547,7 +541,6 @@ valueEqualsValue !value1 !value2 =
         !value2' = flattenValueDeleteZeros value2
     --     -- !value1' = sortFlattenValue value1
     --     -- !value2' = sortFlattenValue value2
-    --     -- sortFlattenValue
     in
         -- value1' == value2' &&
         length value1' == length value2' &&
@@ -561,9 +554,14 @@ valueEqualsValue !value1 !value2 =
                     LedgerValue.assetClassValueOf value2 ac == amount
             ) value1'
 
-        -- value1 == value2
-
 -------------------------------------------------------------------------------------------
+
+{-# INLINABLE unsafeValueEqualsValue #-}
+unsafeValueEqualsValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+unsafeValueEqualsValue val val' =
+  TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData val) == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData val')
+
+------------------------------------------------------------------------------------------------
 
 {-# INLINABLE calculateMinAda #-}
 calculateMinAda :: Integer -> Integer -> Integer -> Bool -> Integer

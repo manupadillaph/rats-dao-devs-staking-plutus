@@ -170,7 +170,7 @@ validateMasterSplitFund !pParams !txID_Master_Fund_CS !ctx !redeemer !inputs_TxO
                 !value_For_PoolDatum_Control = value_In_PoolDatum
                 !value_For_PoolDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_PoolDatum
             in
-                Helpers.valueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
+                Helpers.unsafeValueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
 
         ------------------
         correctOutputs_FundsDatums_And_Values_WithSplitFund :: Bool
@@ -210,13 +210,13 @@ validateMasterSplitFund !pParams !txID_Master_Fund_CS !ctx !redeemer !inputs_TxO
                     length fundDatums_Out_Real_Ordered == length fundDatums_Out_Control_Ordered
                     &&
                     -- all (\(v, d) ->
-                    --     isJust (find (\(v', d') ->   d == d' && Helpers.valueEqualsValue v v' ) fundDatums_Out_Control_Ordered)
+                    --     isJust (find (\(v', d') ->   d == d' && Helpers.unsafeValueEqualsValue v v' ) fundDatums_Out_Control_Ordered)
                     -- ) fundDatums_Out_Real_Ordered
                     all (
                             \(v, d) ->
                                     any (
                                             \(v', d') ->
-                                                    d == d' && Helpers.valueEqualsValue v v'
+                                                    d == d' && Helpers.unsafeValueEqualsValue v v'
                                             ) fundDatums_Out_Control_Ordered
                     ) fundDatums_Out_Real_Ordered
 

@@ -206,7 +206,7 @@ validateMasterSendBackDeposit !pParams !txID_Master_Fund_CS !txID_User_Deposit_C
                             !value_For_PoolDatum_Control = value_In_PoolDatum <> value_For_Mint_TxID_Master_SendBackDeposit <> value_Of_TxID_User_Harvest
                             !value_For_PoolDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_PoolDatum
                         in
-                            Helpers.valueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
+                            Helpers.unsafeValueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
                     in
                         traceIfFalse "WIO" correctIO &&
                         traceIfFalse "FCNZ" isFundCountZero &&
@@ -248,7 +248,7 @@ validateMasterSendBackDeposit !pParams !txID_Master_Fund_CS !txID_User_Deposit_C
                                 !value_For_FundDatum_Control = value_In_FundDatum <> value_For_Mint_TxID_Master_SendBackDeposit <> value_Of_TxID_User_Harvest
                                 !value_For_FundDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_FundDatum
                             in
-                                Helpers.valueEqualsValue value_For_FundDatum_Real value_For_FundDatum_Control
+                                Helpers.unsafeValueEqualsValue value_For_FundDatum_Real value_For_FundDatum_Control
                     in
                         traceIfFalse "WIO" correctIO &&
                         traceIfFalse "FD" correctOutput_FundDatum_NotChanged && 

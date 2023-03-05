@@ -168,7 +168,7 @@ validateUserDeposit !pParams !ctx !redeemer !inputs_TxOut_Values_And_Datums !inp
                     ------------------
                         !value_For_UserDatum_Control =  valueInvestAmount <> value_For_Mint_UserID <> valueMinAda
                     in
-                        investAmount == investAmount' && Helpers.valueEqualsValue value_For_UserDatum_Real value_For_UserDatum_Control
+                        investAmount == investAmount' && Helpers.unsafeValueEqualsValue value_For_UserDatum_Real value_For_UserDatum_Control
                 else
                     let
                         !staking_AC = LedgerValue.AssetClass (T.ppStaking_CS  pParams, T.ppStaking_TN pParams)
@@ -176,7 +176,7 @@ validateUserDeposit !pParams !ctx !redeemer !inputs_TxOut_Values_And_Datums !inp
                     ------------------
                         !value_For_UserDatum_Control =  valueInvestAmount <> value_For_Mint_UserID <> valueMinAda
                     in
-                        Helpers.valueEqualsValue value_For_UserDatum_Real value_For_UserDatum_Control
+                        Helpers.unsafeValueEqualsValue value_For_UserDatum_Real value_For_UserDatum_Control
 
 -- --------------------------------------------------------------------------------
 
