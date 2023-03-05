@@ -49,9 +49,9 @@ import qualified Plutus.Script.Utils.V1.Typed.Scripts.Validators as UtilsTypedSc
 import qualified Ledger.Ada                                             as LedgerAda
 import qualified Ledger.Constraints                                     as LedgerConstraints
 import qualified Ledger.Constraints.TxConstraints                       as LedgerTxConstraints
-import qualified Ledger.Constraints.ValidityInterval                    as LedgerValidityInterval 
+-- import qualified Ledger.Constraints.ValidityInterval                    as LedgerValidityInterval 
 -- import qualified Ledger.Interval                                        as LedgerInterval
--- import qualified Plutus.V1.Ledger.Interval                              as LedgerIntervalV1 (Interval) --from, contains, interval
+import qualified Plutus.V1.Ledger.Interval                              as LedgerIntervalV1 (Interval) --from, contains, interval
 -- import qualified Plutus.V2.Ledger.Address                            as LedgerAddressV2
 import qualified Plutus.V2.Ledger.Api                                   as LedgerApiV2
 -- import qualified Plutus.V2.Ledger.Value                              as LedgerValueV2
@@ -336,7 +336,8 @@ mintNFT_With_TxOut :: DataMap.Map LedgerApiV2.TxOutRef LedgerTx.DecoratedTxOut
                                  -> LedgerApiV2.TxOutRef
                                  -> Maybe LedgerApiV2.Redeemer
                                  -> LedgerValue.Value
-                                 -> LedgerValidityInterval.ValidityInterval LedgerApiV2.POSIXTime
+                                 -- -> LedgerValidityInterval.ValidityInterval LedgerApiV2.POSIXTime
+                                    -> LedgerIntervalV1.Interval LedgerApiV2.POSIXTime
                                  -> Ledger.PaymentPubKeyHash
                                  -> (LedgerConstraints.ScriptLookups a0, LedgerTxConstraints.TxConstraints (UtilsTypedScriptsValidatorsV1.RedeemerType DataVoid.Void) (UtilsTypedScriptsValidatorsV1.DatumType DataVoid.Void))
 mintNFT_With_TxOut uTxOs policy txOutRef redeemerMint valueForMint validityRange pPKH = do
@@ -362,7 +363,8 @@ mintNFT_With_TxOut uTxOs policy txOutRef redeemerMint valueForMint validityRange
                 Just r  -> LedgerConstraints.mustMintValueWithRedeemer r valueForMint
             P.<>
             -- Is goint create the valid range based in validTimeRange Pool Param
-            LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            -- LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            LedgerConstraints.mustValidateIn validityRange P.<>
             -- Must be signed by the master or the user PPKH
             LedgerConstraints.mustBeSignedBy pPKH
 
@@ -374,7 +376,8 @@ mintToken_With_Policy :: DataMap.Map LedgerApiV2.TxOutRef LedgerTx.DecoratedTxOu
                                  -> LedgerApiV2.MintingPolicy
                                  -> Maybe LedgerApiV2.Redeemer
                                  -> LedgerValue.Value
-                                 -> LedgerValidityInterval.ValidityInterval LedgerApiV2.POSIXTime
+                                 -- -> LedgerValidityInterval.ValidityInterval LedgerApiV2.POSIXTime
+                                    -> LedgerIntervalV1.Interval LedgerApiV2.POSIXTime
                                  -> Ledger.PaymentPubKeyHash
                                  -> (LedgerConstraints.ScriptLookups a0, LedgerTxConstraints.TxConstraints (UtilsTypedScriptsValidatorsV1.RedeemerType DataVoid.Void) (UtilsTypedScriptsValidatorsV1.DatumType DataVoid.Void))
 mintToken_With_Policy uTxOs policy redeemerMint valueForMint validityRange pPKH = do
@@ -395,7 +398,8 @@ mintToken_With_Policy uTxOs policy redeemerMint valueForMint validityRange pPKH 
                 Just r  -> LedgerConstraints.mustMintValueWithRedeemer r valueForMint
             P.<>
             -- Is goint create the valid range based in validTimeRange Pool Param
-            LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            -- LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            LedgerConstraints.mustValidateIn validityRange P.<>
             -- Must be signed by the master or the user PPKH
             LedgerConstraints.mustBeSignedBy pPKH
 
@@ -407,7 +411,8 @@ mintToken_With_RefPolicy :: DataMap.Map LedgerApiV2.TxOutRef LedgerTx.DecoratedT
                                  -> (LedgerApiV2.TxOutRef, LedgerTx.DecoratedTxOut)
                                  -> Maybe LedgerApiV2.Redeemer
                                  -> LedgerValue.Value
-                                 -> LedgerValidityInterval.ValidityInterval LedgerApiV2.POSIXTime
+                                 -- -> LedgerValidityInterval.ValidityInterval LedgerApiV2.POSIXTime
+                                    -> LedgerIntervalV1.Interval LedgerApiV2.POSIXTime
                                  -> Ledger.PaymentPubKeyHash
                                  -> (LedgerConstraints.ScriptLookups a0, LedgerTxConstraints.TxConstraints (UtilsTypedScriptsValidatorsV1.RedeemerType DataVoid.Void) (UtilsTypedScriptsValidatorsV1.DatumType DataVoid.Void))
 mintToken_With_RefPolicy uTxOs uTxOAtScriptWithScript redeemerMint valueForMint validityRange pPKH = do
@@ -423,7 +428,8 @@ mintToken_With_RefPolicy uTxOs uTxOAtScriptWithScript redeemerMint valueForMint 
                 Nothing -> LedgerTxConstraints.mustMintValueWithReference (fst uTxOAtScriptWithScript) valueForMint
                 Just r  -> LedgerTxConstraints.mustMintValueWithRedeemerAndReference r (Just $ fst uTxOAtScriptWithScript) valueForMint
             P.<>
-            LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            -- LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            LedgerConstraints.mustValidateIn validityRange P.<>
             LedgerConstraints.mustBeSignedBy pPKH
 
     (lookupsTxMint, txMint)
@@ -434,7 +440,8 @@ burntToken_With_Policy :: DataMap.Map LedgerApiV2.TxOutRef LedgerTx.DecoratedTxO
                                  -> LedgerApiV2.MintingPolicy
                                  -> Maybe LedgerApiV2.Redeemer
                                  -> LedgerValue.Value
-                                 -> LedgerValidityInterval.ValidityInterval LedgerApiV2.POSIXTime
+                                 -- -> LedgerValidityInterval.ValidityInterval LedgerApiV2.POSIXTime
+                                    -> LedgerIntervalV1.Interval LedgerApiV2.POSIXTime
                                  -> Ledger.PaymentPubKeyHash
                                  -> (LedgerConstraints.ScriptLookups a0, LedgerTxConstraints.TxConstraints (UtilsTypedScriptsValidatorsV1.RedeemerType DataVoid.Void) (UtilsTypedScriptsValidatorsV1.DatumType DataVoid.Void))
 burntToken_With_Policy uTxOs policy redeemerBurn valueForBurn validityRange pPKH = do
@@ -452,7 +459,8 @@ burntToken_With_Policy uTxOs policy redeemerBurn valueForBurn validityRange pPKH
                 Just r  -> LedgerConstraints.mustMintValueWithRedeemer r valueForBurn
             P.<>
             -- Is goint create the valid range based in validTimeRange Pool Param
-            LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            -- LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            LedgerConstraints.mustValidateIn validityRange P.<>
             -- Must be signed by the master or the user PPKH
             LedgerConstraints.mustBeSignedBy pPKH
 
@@ -464,7 +472,8 @@ burntToken_With_RefPolicy :: DataMap.Map LedgerApiV2.TxOutRef LedgerTx.Decorated
                                  -> (LedgerApiV2.TxOutRef, LedgerTx.DecoratedTxOut)
                                  -> Maybe LedgerApiV2.Redeemer
                                  -> LedgerValue.Value
-                                 -> LedgerValidityInterval.ValidityInterval LedgerApiV2.POSIXTime
+                                 -- -> LedgerValidityInterval.ValidityInterval LedgerApiV2.POSIXTime
+                                    -> LedgerIntervalV1.Interval LedgerApiV2.POSIXTime
                                  -> Ledger.PaymentPubKeyHash
                                  -> (LedgerConstraints.ScriptLookups a0, LedgerTxConstraints.TxConstraints (UtilsTypedScriptsValidatorsV1.RedeemerType DataVoid.Void) (UtilsTypedScriptsValidatorsV1.DatumType DataVoid.Void))
 burntToken_With_RefPolicy uTxOs uTxOAtScriptWithScript redeemerBurn valueForBurn validityRange pPKH = do
@@ -482,7 +491,8 @@ burntToken_With_RefPolicy uTxOs uTxOAtScriptWithScript redeemerBurn valueForBurn
                 Just r  -> LedgerTxConstraints.mustMintValueWithRedeemerAndReference r (Just $ fst uTxOAtScriptWithScript) valueForBurn
             P.<>
             -- Is goint create the valid range based in validTimeRange Pool Param
-            LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            -- LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            LedgerConstraints.mustValidateIn validityRange P.<>
             -- Must be signed by the master or the user PPKH
             LedgerConstraints.mustBeSignedBy pPKH
 

@@ -33,7 +33,7 @@ import qualified Control.Concurrent.STM                                 as Concu
 import qualified Control.Monad.IO.Class                                 as MonadIOClass (MonadIO (..))
 import qualified Control.Monad.Freer                                    as MonadFreer (interpret)
 import qualified Control.Monad.Freer.Internal                           as MonadFreerInternal (Eff)
-import qualified Cardano.Node.Emulator.TimeSlot                         as CardanoNodeEmulatorTimeSlot
+-- import qualified Cardano.Node.Emulator.TimeSlot                         as CardanoNodeEmulatorTimeSlot
 import qualified Data.Default                                           as DataDefault (def)
 import qualified Data.Fixed                                             as DataFixed (Pico, Fixed ( MkFixed ))
 import qualified Data.List                                              as DataList
@@ -47,7 +47,7 @@ import qualified Ledger.Ada                                             as Ledge
 import qualified Ledger.Address                                         as LedgerAddress (Address)
 import qualified Ledger.Blockchain                                      as LedgerBlockchain
 import qualified Ledger.CardanoWallet                                   as LedgerCardanoWallet
---import qualified Ledger.TimeSlot                                        as LedgerTimeSlot
+import qualified Ledger.TimeSlot                                        as LedgerTimeSlot
 import qualified Ledger.Value                                           as LedgerValue
 -- import qualified Playground.Contract                                 as PlaygroundContract (IO)
 import qualified Prelude                                                as P
@@ -365,7 +365,7 @@ balances (_, walletCount) pabPoolParams' _ = do
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
 
     slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-    let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+    let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
     PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
     PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot

@@ -66,6 +66,7 @@ import qualified Plutus.V1.Ledger.Credential                        as LedgerCre
 -- import qualified Plutus.V1.Ledger.Crypto                         as LedgerCryptoV1 
 -- import qualified Plutus.V1.Ledger.EvaluationContext    as LedgerEvaluationContextV1
 -- import qualified Plutus.V1.Ledger.Bytes                            as LedgerBytesV1
+import qualified Plutus.V1.Ledger.ProtocolVersions             as LedgerProtocolVersionsV1  
 import qualified Plutus.V1.Ledger.Value                                 as LedgerValueV1 (TokenName (..))
 import qualified Plutus.V1.Ledger.Scripts                             as LedgerScriptsV1
 import qualified Plutus.V2.Ledger.Api                                     as LedgerApiV2
@@ -565,7 +566,7 @@ validatorAddrToAddrBech32Mainnet addr = do
 evaluateScriptValidator :: LedgerApiV2.Validator -> [PlutusTx.Data] -> (LedgerApiV2.LogOutput, P.Either LedgerApiV2.EvaluationError LedgerApiV2.ExBudget, Integer)
 evaluateScriptValidator validator datas =
     let
-        !pv = LedgerApiV2.ProtocolVersion 6 0
+        !pv = LedgerProtocolVersionsV1.vasilPV 
 
         !scriptUnValidatorV2 = Utils.getScriptUnValidator validator
 
@@ -585,7 +586,7 @@ evaluateScriptValidator validator datas =
 evaluateScriptMint :: LedgerApiV2.MintingPolicy -> [PlutusTx.Data] -> (LedgerApiV2.LogOutput, P.Either LedgerApiV2.EvaluationError LedgerApiV2.ExBudget, Integer)
 evaluateScriptMint policy datas =
     let
-        !pv = LedgerApiV2.ProtocolVersion 6 0
+        !pv = LedgerProtocolVersionsV1.vasilPV 
 
         !scriptMintingPolicyV2 = Utils.getScriptMintingPolicy policy
 
@@ -610,10 +611,15 @@ getRight (P.Left _) = P.error "getRight: Left"
 
 ----------------------------------------------------------------------------------------
 
-addressToCardanoAddress :: Ledger.NetworkId -> LedgerAddress.Address -> LedgerAddress.CardanoAddress
-addressToCardanoAddress network add = Utils.getRight $ LedgerTxCardanoAPI.toCardanoAddressInEra network add
+-- -- TODO: Usa plutus-1.1.0
+-- addressToCardanoAddress :: Ledger.NetworkId -> LedgerAddress.Address -> LedgerAddress.CardanoAddress
+-- addressToCardanoAddress network add = Utils.getRight $ LedgerTxCardanoAPI.toCardanoAddressInEra network add
 
-cardanoAddressToAddress :: LedgerAddress.CardanoAddress -> LedgerAddress.Address
-cardanoAddressToAddress  = Ledger.toPlutusAddress  
+-- -- TODO: Usa plutus-1.1.0
+-- cardanoAddressToAddress :: LedgerAddress.CardanoAddress -> LedgerAddress.Address
+-- cardanoAddressToAddress  = Ledger.toPlutusAddress  
+
+cardanoAddressToAddress :: LedgerAddress.Address -> LedgerAddress.Address
+cardanoAddressToAddress x = x
 
 ----------------------------------------------------------------------------------------

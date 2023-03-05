@@ -9,7 +9,15 @@ License:            Apache-2.0
 License-files:      LICENSE
 
 common lang
-  default-language:   Haskell2010
+    default-language:   Haskell2010
+    ghc-options:
+      -Wall -Wnoncanonical-monad-instances
+      -Wincomplete-uni-patterns -Wincomplete-record-updates
+      -Wredundant-constraints -Widentities -rtsopts
+      -- See Plutus Tx readme
+      -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    if flag(defer-plugin-errors)
+        ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 --  default-extensions: ScopedTypeVariables
 --     DeriveFoldable
 --     DeriveFunctor
@@ -21,13 +29,13 @@ common lang
 --     ImportQualifiedPost
 --     ScopedTypeVariables
 --     StandaloneDeriving
-    
+
 library
   hs-source-dirs:      src
   exposed-modules:    
                       Validators.StakePlusV2.PAB.PABSimulator,
                       Deploy,
-                      Test,
+                      Test, Test2,
                       Validators.StakePlusV2.Helpers,
                       Validators.StakePlusV2.OffChain.EndPoints,
                       Validators.StakePlusV2.OffChain.EndPointsMaster1,
@@ -69,16 +77,15 @@ library
   -- Local components
   --------------------
   build-depends:  
-                     
-                   
-                     cardano-api           
-                     --, cardano-cli           
+                     cardano-api >=1.35      
+                     , cardano-cli >=1.35         
                      , cardano-addresses
                      , cardano-crypto-class
                      , cardano-ledger-core
                      , cardano-ledger-alonzo
                      , cardano-ledger-babbage
                      , cardano-ledger-shelley
+                     , cardano-node-emulator
                      , cardano-wallet-core
                      , data-default
                      , playground-common
@@ -87,32 +94,13 @@ library
                      , plutus-contract
                      , plutus-core
                      , plutus-ledger
-                     --, plutus-ledger-api
-                     , plutus-ledger-api       
+                     , plutus-ledger-api >=1.0.0    
                      , plutus-ledger-constraints
                      , plutus-script-utils
                      , plutus-pab
-                     --, plutus-script-utils
-                     --, plutus-use-cases
-                     , plutus-tx               
-                     , plutus-tx-plugin       
+                     , plutus-tx >=1.0.0
+                     , plutus-tx-plugin >=1.0.0    
 
-
-    -- , cardano-api             >=1.35
-    -- , cardano-cli             >=1.35
-    -- , cardano-ledger-alonzo
-    -- , cardano-ledger-babbage
-    -- , cardano-ledger-core
-    -- , cardano-ledger-shelley
-    -- , cardano-slotting
-    -- , ouroboros-consensus
-    -- , ouroboros-network
-    -- , plutus-ledger-api       >=1.0.0
-    -- , plutus-tx               >=1.0.0
-    -- , plutus-tx-plugin        >=1.0.0
-
-   
-    
   ------------------------
   -- Non-IOG dependencies
   ------------------------

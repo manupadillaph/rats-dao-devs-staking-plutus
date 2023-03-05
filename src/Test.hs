@@ -21,6 +21,7 @@ import qualified Ledger.Address                                as LedgerAddress
 import qualified Ledger.Value                                  as LedgerValue
 import qualified Plutonomy
 import qualified Plutus.Script.Utils.V2.Scripts                as UtilsScriptsV2
+import qualified Plutus.V1.Ledger.ProtocolVersions             as LedgerProtocolVersionsV1  
 import qualified Plutus.V1.Ledger.Scripts                      as LedgerScriptsV1
 import qualified Plutus.V2.Ledger.Api                          as LedgerApiV2
 import qualified Plutus.V2.Ledger.Contexts                     as LedgerContextsV2
@@ -65,9 +66,9 @@ valueEqualsValue !value1 !value2 =
 ---------------------------------------------------
 
 -- require EXACTLY the same value and compare using the serialised bytes.
-{-# INLINABLE (===!) #-}
-(===!) :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
-(===!) val val' =
+{-# INLINABLE unsafeValueEqualsValue #-}
+unsafeValueEqualsValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+unsafeValueEqualsValue val val' =
   TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData val) == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData val')
 
 ---------------------------------------------------
@@ -86,11 +87,8 @@ mkPolicy1 !mintRedeemerRaw !ctxRaw  =
         !value2 = inputs_Values!!1
         !value3_Control = value1 <> value2
         !value3_Real = outputs_Values!!0
-
-        !redSer = TxBuiltins.serialiseData mintRedeemerRaw
-
     in
-        if valueEqualsValue value3_Control value3_Real
+        if value3_Control == value3_Real
         then ()
         else error ()
 
@@ -108,9 +106,28 @@ mkPolicy2 !mintRedeemerRaw !ctxRaw  =
         !value2 = inputs_Values!!1
         !value3_Control = value1 <> value2
         !value3_Real = outputs_Values!!0
-
     in
-        if valueEqualsValue value3_Control value3_Real
+        if value3_Control `valueEqualsValue` value3_Real
+        then ()
+        else error ()
+
+
+{-# INLINABLE mkPolicy3 #-}
+mkPolicy3 :: BuiltinData -> BuiltinData -> ()
+mkPolicy3 !mintRedeemerRaw !ctxRaw  =
+    let
+        !ctx = LedgerApiV2.unsafeFromBuiltinData @LedgerContextsV2.ScriptContext ctxRaw
+        !inputs = [ LedgerApiV2.txInInfoResolved txInfoInput | txInfoInput <- LedgerApiV2.txInfoInputs (LedgerContextsV2.scriptContextTxInfo ctx)]
+        !outputs = LedgerApiV2.txInfoOutputs (LedgerContextsV2.scriptContextTxInfo ctx)
+        !inputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- inputs ]
+        !outputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- outputs ]
+
+        !value1 = inputs_Values!!0
+        !value2 = inputs_Values!!1
+        !value3_Control = value1 <> value2
+        !value3_Real = outputs_Values!!0
+    in
+        if value3_Control `unsafeValueEqualsValue` value3_Real
         then ()
         else error ()
 
@@ -124,6 +141,10 @@ policy1 = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy1 ||
 policy2 :: LedgerApiV2.MintingPolicy
 policy2 = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy2 ||])
 
+{-# INLINEABLE policy3 #-}
+policy3 :: LedgerApiV2.MintingPolicy
+policy3 = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy3 ||])
+
 ---------------------------------------------------
 
 {-# INLINEABLE policy1_fromPlutonomy #-}
@@ -135,6 +156,11 @@ policy1_fromPlutonomy = Plutonomy.optimizeUPLC $ Plutonomy.mintingPolicyToPlutus
 policy2_fromPlutonomy :: LedgerApiV2.MintingPolicy
 policy2_fromPlutonomy = Plutonomy.optimizeUPLC $ Plutonomy.mintingPolicyToPlutus $ Plutonomy.mkMintingPolicyScript
     $$(PlutusTx.compile [|| mkPolicy2 ||])
+
+{-# INLINEABLE policy3_fromPlutonomy #-}
+policy3_fromPlutonomy :: LedgerApiV2.MintingPolicy
+policy3_fromPlutonomy = Plutonomy.optimizeUPLC $ Plutonomy.mintingPolicyToPlutus $ Plutonomy.mkMintingPolicyScript
+    $$(PlutusTx.compile [|| mkPolicy3 ||])
 
 ---------------------------------------------------
 
@@ -200,7 +226,7 @@ evaluateScriptMint p datas =
         exBudget :: LedgerApiV2.ExBudget
         exBudget = LedgerApiV2.ExBudget 10000000000 14000000
 
-        !pv = LedgerApiV2.ProtocolVersion 6 0
+        !pv = LedgerProtocolVersionsV1.vasilPV 
         !scriptMintingPolicyV2 = getScriptMintingPolicy p
         !scriptShortBsV2 = getScriptShortBs scriptMintingPolicyV2
         !(_, e) = LedgerApiV2.evaluateScriptRestricting pv LedgerApiV2.Verbose LedgerEvaluationContextV2.evalCtxForTesting exBudget scriptShortBsV2 datas
@@ -215,6 +241,7 @@ evaluateCase v =
     let
         !curSymbol1 = curSymbol policy1
         !curSymbol2 = curSymbol policy2
+        !curSymbol3 = curSymbol policy3
 
         exampleTxOutRef :: LedgerApiV2.TxOutRef
         exampleTxOutRef = LedgerApiV2.TxOutRef {
@@ -280,11 +307,17 @@ evaluateCase v =
         mockScriptPurposeMint2 :: LedgerApiV2.ScriptPurpose    
         mockScriptPurposeMint2 = LedgerApiV2.Minting curSymbol2
 
+        mockScriptPurposeMint3 :: LedgerApiV2.ScriptPurpose    
+        mockScriptPurposeMint3 = LedgerApiV2.Minting curSymbol3
+
         mockRedeemerMint1 :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
         mockRedeemerMint1 = (mockScriptPurposeMint1, redeemer_For_Mint)
 
         mockRedeemerMint2 :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
         mockRedeemerMint2 = (mockScriptPurposeMint2, redeemer_For_Mint)
+
+        mockRedeemerMint3 :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
+        mockRedeemerMint3 = (mockScriptPurposeMint3, redeemer_For_Mint)
 
         mockTxInfoRedeemers1 :: LedgerApiV2.Map LedgerApiV2.ScriptPurpose LedgerApiV2.Redeemer
         mockTxInfoRedeemers1 = LedgerApiV2.fromList
@@ -296,6 +329,12 @@ evaluateCase v =
         mockTxInfoRedeemers2 = LedgerApiV2.fromList
             [
                 mockRedeemerMint2
+            ]
+
+        mockTxInfoRedeemers3 :: LedgerApiV2.Map LedgerApiV2.ScriptPurpose LedgerApiV2.Redeemer
+        mockTxInfoRedeemers3 = LedgerApiV2.fromList
+            [
+                mockRedeemerMint3
             ]
 
         !now = LedgerApiV2.POSIXTime 1000000
@@ -343,16 +382,40 @@ evaluateCase v =
                 )
                 mockScriptPurposeMint2 -- scriptContextPurpose :: ScriptPurpose
 
+        mockCtx3 :: LedgerApiV2.ScriptContext
+        mockCtx3 =
+            LedgerApiV2.ScriptContext
+                (
+                LedgerApiV2.TxInfo
+                    mockTxInfoInputs -- txInfoInputs :: [TxInInfo]	
+                    [ ] -- txInfoReferenceInputs :: [TxInInfo]
+                    mockTxInfoOutputs -- txInfoOutputs :: [TxOut]	
+                    (LedgerAda.lovelaceValueOf 50000) -- txInfoFee :: Value	
+                    mockTxInfoMint -- txInfoMint :: Value	
+                    [] -- txInfoDCert :: [DCert]	
+                    (LedgerApiV2.fromList []) -- txInfoWdrl :: Map StakingCredential Integer	
+                    validityRange -- txInfoValidRange :: POSIXTimeRange	
+                    []  -- txInfoSignatories :: [PubKeyHash]	
+                    mockTxInfoRedeemers3 -- txInfoRedeemers :: Map ScriptPurpose Redeemer	
+                    (LedgerApiV2.fromList [])  -- txInfoData :: Map DatumHash Datum	
+                    (LedgerApiV2.TxId "555") -- txInfoId :: TxId 
+                )
+                mockScriptPurposeMint3 -- scriptContextPurpose :: ScriptPurpose
+
         !datas1 = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx1]
         !datas2 = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx2]
+        !datas3 = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx3]
 
         (e1, size1) = evaluateScriptMint policy1 datas1
         (e2, size2) = evaluateScriptMint policy2 datas2
-        (e3, size3) = evaluateScriptMint policy1_fromPlutonomy datas1
-        (e4, size4) = evaluateScriptMint policy2_fromPlutonomy datas2
+        (e3, size3) = evaluateScriptMint policy3 datas3
+        (e4, size4) = evaluateScriptMint policy1_fromPlutonomy datas1
+        (e5, size5) = evaluateScriptMint policy2_fromPlutonomy datas2
+        (e6, size6) = evaluateScriptMint policy3_fromPlutonomy datas3
 
     in do
         P.putStrLn "-----"
+        
         P.putStrLn $ "Case: " ++ P.show caseValue 
         case e1 of
             Left evalErr -> do
@@ -370,21 +433,41 @@ evaluateCase v =
                 P.putStrLn "With valueEqualsValue"
                 P.putStrLn $ "Ex Budget: " ++  P.show exbudget ++ " - Script size: " ++  P.show size2
 
+        
         case e3 of
             Left evalErr -> do
-                P.putStrLn "With (== and Plutonomy)"
+                P.putStrLn "With unsafeValueEqualsValue"
                 P.putStrLn $ "Eval Error: " ++ P.show evalErr
             Right exbudget -> do 
-                P.putStrLn "With (== and Plutonomy)"
+                P.putStrLn "With unsafeValueEqualsValue"
                 P.putStrLn $ "Ex Budget: " ++  P.show exbudget ++ " - Script size: " ++  P.show size3
+
+        P.putStrLn "-----"
+        P.putStrLn $ "Case (with Plutonomy): " ++ P.show caseValue 
 
         case e4 of
             Left evalErr -> do
-                P.putStrLn "With valueEqualsValue and Plutonomy" 
+                P.putStrLn "With (==)"
                 P.putStrLn $ "Eval Error: " ++ P.show evalErr
             Right exbudget -> do 
-                P.putStrLn "With valueEqualsValue and Plutonomy"
+                P.putStrLn "With (==)"
                 P.putStrLn $ "Ex Budget: " ++  P.show exbudget ++ " - Script size: " ++  P.show size4
+
+        case e5 of
+            Left evalErr -> do
+                P.putStrLn "With valueEqualsValue"
+                P.putStrLn $ "Eval Error: " ++ P.show evalErr
+            Right exbudget -> do 
+                P.putStrLn "With valueEqualsValue"
+                P.putStrLn $ "Ex Budget: " ++  P.show exbudget ++ " - Script size: " ++  P.show size5
+
+        case e6 of
+            Left evalErr -> do
+                P.putStrLn "With unsafeValueEqualsValue"
+                P.putStrLn $ "Eval Error: " ++ P.show evalErr
+            Right exbudget -> do 
+                P.putStrLn "With unsafeValueEqualsValue"
+                P.putStrLn $ "Ex Budget: " ++  P.show exbudget ++ " - Script size: " ++  P.show size6
 
 
 --------------------------------------------------------------------------------

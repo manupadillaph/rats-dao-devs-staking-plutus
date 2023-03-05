@@ -12,7 +12,6 @@
 
 
 module Test2 where
-
 import qualified Data.ByteString.Short                         as DataByteStringShort
 import qualified Data.ByteString.Lazy                          as DataByteStringLazy
 import qualified Codec.Serialise                               as CodecSerialise
@@ -22,7 +21,10 @@ import qualified Ledger.Ada                                    as LedgerAda
 import qualified Ledger.Address                                as LedgerAddress
 import qualified Ledger.Value                                  as LedgerValue
 -- import qualified Plutonomy
--- import qualified Plutus.Script.Utils.V2.Scripts                as UtilsScriptsV2
+import qualified Plutus.Script.Utils.V2.Typed.Scripts.Validators as UtilsTypedScriptsValidatorsV2
+
+--import qualified Plutus.Script.Utils.V2.Scripts                as UtilsScriptsV2
+import qualified Plutus.V1.Ledger.ProtocolVersions             as LedgerProtocolVersionsV1  
 import qualified Plutus.V1.Ledger.Scripts                      as LedgerScriptsV1
 import qualified Plutus.V2.Ledger.Api                          as LedgerApiV2
 -- import qualified Plutus.V2.Ledger.Contexts                     as LedgerContextsV2
@@ -73,7 +75,7 @@ validator :: Plutus.Validator
 validator = Plutus.mkValidatorScript
    $$(PlutusTx.compile [|| wrap ||])
  where
-   wrap = Scripts.mkUntypedValidator mkValidator
+   wrap = UtilsTypedScriptsValidatorsV2.mkUntypedValidator mkValidator
 
 script :: Plutus.Script
 script = Plutus.unValidatorScript validator
@@ -89,7 +91,7 @@ requireRedeemerScript = PlutusScriptSerialised requireRedeemerScriptShortBs
 evaluateScriptValidator :: LedgerApiV2.Validator -> [PlutusTx.Data] -> (LedgerApiV2.LogOutput, P.Either LedgerApiV2.EvaluationError LedgerApiV2.ExBudget, Integer)
 evaluateScriptValidator validator' datas =
     let
-        !pv = LedgerApiV2.ProtocolVersion 6 0
+        !pv = LedgerProtocolVersionsV1.vasilPV 
 
         getScriptShortBs :: LedgerApiV2.Script -> DataByteStringShort.ShortByteString
         getScriptShortBs = DataByteStringShort.toShort . DataByteStringLazy.toStrict . CodecSerialise.serialise

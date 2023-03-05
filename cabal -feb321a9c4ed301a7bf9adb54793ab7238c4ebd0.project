@@ -1,7 +1,8 @@
 -- Bump this if you need newer packages.
 index-state: 2022-05-18T00:00:00Z
 
-packages: ./.
+packages:
+  rats-dao-devs-staking.cabal
 
 
 -- We never, ever, want this.

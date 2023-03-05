@@ -27,7 +27,7 @@ module Validators.StakePlusV2.PAB.PABSimulator where
 -----------------------------------------------------------------------------------------
 -- Import Externos
 -----------------------------------------------------------------------------------------
-import qualified Cardano.Node.Emulator.TimeSlot                                             as CardanoNodeEmulatorTimeSlot
+-- import qualified Cardano.Node.Emulator.TimeSlot                                             as CardanoNodeEmulatorTimeSlot
 import qualified Control.Concurrent.STM                                                     as ConcurrentSTM (atomically)
 import qualified Control.Monad.IO.Class                                                     as MonadIOClass (MonadIO (..))
 import qualified Control.Monad                                                              as Monad (void)
@@ -51,7 +51,7 @@ import qualified Ledger
 -- import qualified Ledger.Address                                                          as LedgerAddress (Address)
 import qualified Ledger.Blockchain                                                          as LedgerBlockchain (value)
 -- import qualified Ledger.CardanoWallet                                                       as LedgerCardanoWallet
--- import qualified Ledger.TimeSlot                                                            as LedgerTimeSlot
+import qualified Ledger.TimeSlot                                                            as LedgerTimeSlot
 import qualified Ledger.Value                                                               as LedgerValue
 -- import qualified Playground.Contract                                                     as PlaygroundContract (IO)
 import qualified Prelude                                                                    as P
@@ -675,14 +675,14 @@ createPoolParams (walletNro', walletCount) pabPoolParams' shutdown =
                                 getTime defTime lowerLimit
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            -- let now = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            -- let now = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
-            let beginAtPool'  = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let beginAtPool'  = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "Enter Begin Date in Milisecconds (def=" ++ P.show beginAtPool' ++ "):"
             beginAtPool <- getTime beginAtPool' 0 
 
             slot' <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let deadlinePool'  = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def (slot'+900)
+            let deadlinePool'  = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def (slot'+900)
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "Enter Deadline in Milisecconds (def=" ++ P.show deadlinePool' ++ " / 15 min):"
             deadlinePool <- getTime deadlinePool' beginAtPool
 
@@ -1075,7 +1075,7 @@ mintTokens (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cMasterMintFree_Master
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -1115,7 +1115,7 @@ masterPreparePool (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cmasterPreparePool_Master
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -1173,7 +1173,7 @@ masterNewFund (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cMasterFund_Master
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -1245,7 +1245,7 @@ masterFundAndMerge (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cMasterFundAndMerge_Master
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
 
@@ -1316,7 +1316,7 @@ masterMergeFunds (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cMasterFundAndMerge_Master
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
 
@@ -1396,7 +1396,7 @@ masterSplitFund (walletNro', walletCount) pabPoolParams' shutdown =
                     _ <- PABSimulator.waitUntilFinished cMasterSplitFund_Master
 
                     slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-                    let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+                    let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
                     PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
                     PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -1445,7 +1445,7 @@ masterClosePool (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cMasterClosePool_Master
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -1494,7 +1494,7 @@ masterTerminatePool (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cMasterTerminatePool_Master
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -1543,7 +1543,7 @@ masterEmergency (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cMasterEmergency_Master
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -1608,7 +1608,7 @@ masterDeleteFunds (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cMasterDeleteFund_Master
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -1661,7 +1661,7 @@ masterGetBackFund (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cMasterSendBackFund_Master
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -1715,7 +1715,7 @@ masterSendBackFund (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cMasterSendBackFund_Master
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -1786,7 +1786,7 @@ masterSendBackDeposit (walletNro', walletCount) pabPoolParams' shutdown =
                     _ <- PABSimulator.waitUntilFinished cMasterSendBackDeposit_Master
 
                     slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-                    let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+                    let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
                     PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
                     PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -1845,7 +1845,7 @@ userDeposit (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cUserDeposit_User
 
             !slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let !posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let !posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -1927,7 +1927,7 @@ userHarvest (walletNro', walletCount) pabPoolParams' shutdown =
                     _ <- PABSimulator.waitUntilFinished cUserHarvest_User
 
                     !slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-                    let !posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+                    let !posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
                     PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
                     PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -2001,7 +2001,7 @@ userWithdraw (walletNro', walletCount) pabPoolParams' shutdown =
                     _ <- PABSimulator.waitUntilFinished cUserWithdraw_User
 
                     slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-                    let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+                    let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
                     PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
                     PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -2054,7 +2054,7 @@ masterAddScripts (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cMasterAddScripts_User
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot
@@ -2107,7 +2107,7 @@ masterDeleteScripts (walletNro', walletCount) pabPoolParams' shutdown =
             _ <- PABSimulator.waitUntilFinished cMasterDeleteScripts_User
 
             slot <- PABSimulator.currentSlot >>= MonadIOClass.liftIO . ConcurrentSTM.atomically
-            let posixTime = CardanoNodeEmulatorTimeSlot.slotToEndPOSIXTime DataDefault.def slot
+            let posixTime = LedgerTimeSlot.slotToEndPOSIXTime DataDefault.def slot
 
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) ""
             PABSimulator.logString @(PABEffectsContractBuiltin.Builtin PAB.ValidatorContracts) $ "slot: " ++  P.show slot

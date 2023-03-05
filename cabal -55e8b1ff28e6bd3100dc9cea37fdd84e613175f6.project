@@ -2,7 +2,8 @@
 index-state: 2022-05-18T00:00:00Z
 
 -- Tengo que cambiar del archivo de plutus apps las siguientes partes para usarlo applicative
--- packages: ./. 
+-- packages:
+--  rats-dao-devs-staking.cabal 
 -- Tengo que poner eso en lugar de lo que viene: 
 -- packages: doc
 --         freer-extras
@@ -54,7 +55,8 @@ index-state: 2022-05-18T00:00:00Z
 -- El tag lo saco de la carpeta plutus-apps, ejecuto git log -1 
 
 
-packages: ./.
+packages:
+  rats-dao-devs-staking.cabal
 
 -- We never, ever, want this.
 write-ghc-environment-files: never

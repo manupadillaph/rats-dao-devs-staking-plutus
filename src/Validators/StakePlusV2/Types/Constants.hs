@@ -27,9 +27,9 @@ module Validators.StakePlusV2.Types.Constants where
 ------------------------------------------------------------------------------------------
 -- Import Externos
 ------------------------------------------------------------------------------------------`
-import qualified Ledger
+-- import qualified Ledger
 import qualified Plutus.V2.Ledger.Api                   as LedgerApiV2
-import qualified Cardano.Node.Emulator.Params           as CardanoNodeEmulatorParams
+-- import qualified Cardano.Node.Emulator.Params           as CardanoNodeEmulatorParams
 ------------------------------------------------------------------------------------------
 -- Import Internos
 ------------------------------------------------------------------------------------------
@@ -226,7 +226,8 @@ const_1_SD = 1
 
 ------------------------------------------------------------------------------------------
 
-networkId :: Ledger.NetworkId
-networkId = CardanoNodeEmulatorParams.testnet
+-- TODO: Usar plutus-1.1.0
+-- networkId :: Ledger.NetworkId
+-- networkId = CardanoNodeEmulatorParams.testnet
 
 ------------------------------------------------------------------------------------------

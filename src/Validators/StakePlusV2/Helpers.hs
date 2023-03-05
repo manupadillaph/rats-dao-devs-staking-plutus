@@ -30,6 +30,7 @@ module Validators.StakePlusV2.Helpers where
 ------------------------------------------------------------------------------------------
 import qualified Ledger.Ada                                        as LedgerAda
 import qualified Ledger.Value                                      as LedgerValue
+import qualified PlutusTx.Builtins                                 as TxBuiltins
 import           PlutusTx.Prelude                                  ( otherwise, Bool(..), Integer, Maybe(..), Ordering(GT, LT), BuiltinByteString, Eq(..), Ord((>), (<=), (>=), (<), compare), AdditiveGroup((-)), AdditiveSemigroup((+)), Semigroup((<>)), (||), consByteString, emptyByteString, lengthOfByteString, (/=), traceError, ($), find, foldl, length, sum, head, sortBy, tail, negate, divide, quotient, remainder, MultiplicativeSemigroup((*)), not, all, zip, (++), (&&))
 import qualified PlutusTx.AssocMap                                 as TxAssocMap
 import qualified PlutusTx.Foldable                                 as TxFold
@@ -518,6 +519,13 @@ createValueAddingTokensOfCurrencySymbol !ac !cs !acIsWithoutTokenName !value !ca
 
 ------------------------------------------------------------------------------------------------
 
+{-# INLINABLE unsafeValueIncludesValue #-}
+unsafeValueIncludesValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+unsafeValueIncludesValue val val' =
+  TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData val) == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData val')
+
+------------------------------------------------------------------------------------------------
+
 {-# INLINABLE valueIncludesValue #-}
 valueIncludesValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
 valueIncludesValue !value !valueToFind  =
@@ -556,7 +564,6 @@ valueEqualsValue !value1 !value2 =
         -- value1 == value2
 
 -------------------------------------------------------------------------------------------
-
 
 {-# INLINABLE calculateMinAda #-}
 calculateMinAda :: Integer -> Integer -> Integer -> Bool -> Integer

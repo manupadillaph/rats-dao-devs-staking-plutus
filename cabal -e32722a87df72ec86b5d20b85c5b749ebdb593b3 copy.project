@@ -1,5 +1,6 @@
 
-packages: ./.
+packages:
+  rats-dao-devs-staking.cabal
 
 source-repository-package
   type: git

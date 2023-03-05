@@ -102,7 +102,7 @@ balanceAtScript T.PABBalanceAtScriptParams {..} = do
         !pabParams = pbPABPoolParams
         !pParams = T.pppPoolParams pabParams
         !validatorAddress = T.pppValidatorAddress pabParams
-        !validatorAddressCardano = Utils.addressToCardanoAddress T.networkId validatorAddress
+        -- !validatorAddressCardano = Utils.addressToCardanoAddress T.networkId validatorAddress
     ----------------------
         !poolID_CS = T.ppPoolID_CS pParams
         !poolID_AC = LedgerValue.AssetClass (poolID_CS, T.poolID_TN)
@@ -113,7 +113,7 @@ balanceAtScript T.PABBalanceAtScriptParams {..} = do
         !userID_CS = T.pppCurSymbol_TxID_User_Deposit pabParams
         !userID_AC = LedgerValue.AssetClass (userID_CS, T.userID_TN) 
     ---------------------
-    !uTxOsAtValidator <- PlutusContract.utxosAt validatorAddressCardano
+    !uTxOsAtValidator <- PlutusContract.utxosAt validatorAddress
     ---------------------
     PlutusContract.logInfo @P.String $ TextPrintf.printf "----------------"
     ---------------------
@@ -247,7 +247,7 @@ balanceAtScriptFull T.PABBalanceAtScriptFullParams {..} = do
         !pabParams = pbfPABPoolParams
         !pParams = T.pppPoolParams pabParams
         !validatorAddress = T.pppValidatorAddress pabParams
-        !validatorAddressCardano = Utils.addressToCardanoAddress T.networkId validatorAddress
+        -- !validatorAddressCardano = Utils.addressToCardanoAddress T.networkId validatorAddress
     ----------------------
         !poolID_CS = T.ppPoolID_CS pParams
         !poolID_AC = LedgerValue.AssetClass (poolID_CS, T.poolID_TN)
@@ -276,7 +276,7 @@ balanceAtScriptFull T.PABBalanceAtScriptFullParams {..} = do
         !scriptID_User_Deposit_AC =  LedgerValue.AssetClass (scriptID_CS, T.scriptID_User_Deposit_TN)
         !scriptID_User_Harvest_AC =  LedgerValue.AssetClass (scriptID_CS, T.scriptID_User_Harvest_TN)
         !scriptID_User_Withdraw_AC =  LedgerValue.AssetClass (scriptID_CS, T.scriptID_User_Withdraw_TN)
-    !uTxOsAtValidator <- PlutusContract.utxosAt validatorAddressCardano
+    !uTxOsAtValidator <- PlutusContract.utxosAt validatorAddress
     ---------------------
     PlutusContract.logInfo @P.String $ TextPrintf.printf "----"
     PlutusContract.logInfo @P.String $ TextPrintf.printf "Lista de UTxOs: %s" (P.show  uTxOsAtValidator)

@@ -35,9 +35,9 @@ import qualified Ledger
 import qualified Ledger.Ada                                                 as LedgerAda
 import qualified Ledger.Value                                               as LedgerValue
 import qualified Ledger.Constraints                                         as LedgerConstraints
-import qualified Ledger.Constraints.ValidityInterval                        as LedgerValidityInterval 
+-- import qualified Ledger.Constraints.ValidityInterval                        as LedgerValidityInterval 
 import qualified Plutus.Contract                                            as PlutusContract
--- import qualified Plutus.V1.Ledger.Interval                                  as LedgerIntervalV1 (interval)
+import qualified Plutus.V1.Ledger.Interval                                  as LedgerIntervalV1 (interval)
 import qualified Plutus.V2.Ledger.Api                                       as LedgerApiV2
 import qualified PlutusTx
 import           PlutusTx.Prelude
@@ -87,7 +87,7 @@ userDeposit T.PABUserDepositParams{..} = do
         !pParams = T.pppPoolParams pabParams
         !validatorHash = T.pppValidatorHash pabParams
         !validatorAddress = T.pppValidatorAddress pabParams
-        !validatorAddressCardano = Utils.addressToCardanoAddress T.networkId validatorAddress 
+        -- !validatorAddressCardano = Utils.addressToCardanoAddress T.networkId validatorAddress 
     ---------------------
         -- !policy_TxID_User_Deposit = T.pppPolicy_TxID_User_Deposit pabParams
     ---------------------
@@ -131,7 +131,7 @@ userDeposit T.PABUserDepositParams{..} = do
     else
         PlutusContract.throwError "There is NOT UTxO free for Collateral"
     ---------------------
-    uTxOsAtValidator <- PlutusContract.utxosAt validatorAddressCardano
+    uTxOsAtValidator <- PlutusContract.utxosAt validatorAddress
     ---------------------
     !uTxO_With_ScriptDatum' <- OffChainHelpers.getUTxO_With_ScriptDatum scriptID_AC scriptID_Validator_AC uTxOsAtValidator
     ---------------------
@@ -184,7 +184,8 @@ userDeposit T.PABUserDepositParams{..} = do
     ---------------------
         !intervalOffset1 = 1000
         !intervalOffset2 = T.validTimeRange - 1000
-        !validityRange   = LedgerValidityInterval.interval ( now - intervalOffset1 ) (now + intervalOffset2)
+        -- !validityRange   = LedgerValidityInterval.interval ( now - intervalOffset1 ) (now + intervalOffset2)
+        !validityRange   = LedgerIntervalV1.interval ( now - intervalOffset1 ) (now + intervalOffset2)
     ---------------------
     PlutusContract.logInfo @P.String $ TextPrintf.printf "--------------------------------------------------------------------------------------------"
     PlutusContract.logInfo @P.String $ TextPrintf.printf "--------------------------- User Deposit : Ending ---------------------------------------"
@@ -214,7 +215,8 @@ userDeposit T.PABUserDepositParams{..} = do
             tx_Mint_TxID_User_Deposit P.<>
             LedgerConstraints.mustReferenceOutput (fst uTxO_With_PoolDatum) P.<>
             LedgerConstraints.mustPayToOtherScriptWithDatumInTx validatorHash (LedgerApiV2.Datum $ PlutusTx.toBuiltinData userDatum_Out) value_For_UserDatum P.<>
-            LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            -- LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            LedgerConstraints.mustValidateIn validityRange P.<>
             LedgerConstraints.mustBeSignedBy userPPKH
     ---------------------
     submittedTx <- PlutusContract.submitTxConstraintsWith @DataVoid.Void lookupsTx tx
@@ -245,7 +247,7 @@ userHarvest T.PABUserHarvestParams{..} = do
         !pParams = T.pppPoolParams pabParams
         !validatorHash = T.pppValidatorHash pabParams
         !validatorAddress = T.pppValidatorAddress pabParams
-        !validatorAddressCardano = Utils.addressToCardanoAddress T.networkId validatorAddress
+        -- !validatorAddressCardano = Utils.addressToCardanoAddress T.networkId validatorAddress
     ---------------------
         -- !policy_TxID_User_Harvest = T.pppPolicy_TxID_User_Harvest pabParams
     ---------------------
@@ -284,7 +286,7 @@ userHarvest T.PABUserHarvestParams{..} = do
     else
         PlutusContract.throwError "There is NOT UTxO free for Collateral"
     ---------------------
-    uTxOsAtValidator <- PlutusContract.utxosAt validatorAddressCardano
+    uTxOsAtValidator <- PlutusContract.utxosAt validatorAddress
     ---------------------
     !uTxO_With_ScriptDatum' <- OffChainHelpers.getUTxO_With_ScriptDatum scriptID_AC scriptID_Validator_AC uTxOsAtValidator
     ---------------------
@@ -413,7 +415,8 @@ userHarvest T.PABUserHarvestParams{..} = do
     ---------------------
         !intervalOffset1 = 1000
         !intervalOffset2 = T.validTimeRange - 1000
-        !validityRange   = LedgerValidityInterval.interval ( now - intervalOffset1 ) (now + intervalOffset2)
+        -- !validityRange   = LedgerValidityInterval.interval ( now - intervalOffset1 ) (now + intervalOffset2)
+        !validityRange   = LedgerIntervalV1.interval ( now - intervalOffset1 ) (now + intervalOffset2)
     ----------------------------------
     PlutusContract.logInfo @P.String $ TextPrintf.printf "--------------------------------------------------------------------------------------------"
     PlutusContract.logInfo @P.String $ TextPrintf.printf "--------------------------- User Harvest : Ending ---------------------------------------"
@@ -561,7 +564,8 @@ userHarvest T.PABUserHarvestParams{..} = do
             LedgerConstraints.mustSpendScriptOutputWithReference (fst uTxO_With_UserDatum) (T.redeemerValidatorToBuiltinData redeemer_For_Consuming_Validator_Datum) (fst uTxO_With_ScriptDatum) P.<>
             LedgerConstraints.mustPayToOtherScriptWithDatumInTx validatorHash (LedgerApiV2.Datum $ PlutusTx.toBuiltinData userDatum_Out) value_For_UserDatum P.<>
             -- LedgerConstraints.mustPayToPubKey (Ledger.PaymentPubKeyHash user) value_For_User  P.<> 
-            LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            -- LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+            LedgerConstraints.mustValidateIn validityRange P.<>
             LedgerConstraints.mustBeSignedBy userPPKH
     ---------------------
     submittedTx <- PlutusContract.submitTxConstraintsWith @DataVoid.Void lookupsTx tx
@@ -592,7 +596,7 @@ userWithdraw T.PABUserWithdrawParams{..} = do
         !pParams = T.pppPoolParams pabParams
         !validatorHash = T.pppValidatorHash pabParams
         !validatorAddress = T.pppValidatorAddress pabParams
-        !validatorAddressCardano = Utils.addressToCardanoAddress T.networkId validatorAddress
+        -- !validatorAddressCardano = Utils.addressToCardanoAddress T.networkId validatorAddress
     ---------------------
         -- !policy_TxID_User_Deposit = T.pppPolicy_TxID_User_Deposit pabParams
         -- !policy_TxID_User_Withdraw = T.pppPolicy_TxID_User_Withdraw pabParams
@@ -634,7 +638,7 @@ userWithdraw T.PABUserWithdrawParams{..} = do
     else
         PlutusContract.throwError "There is NOT UTxO free for Collateral"
     ---------------------
-    !uTxOsAtValidator <- PlutusContract.utxosAt validatorAddressCardano
+    !uTxOsAtValidator <- PlutusContract.utxosAt validatorAddress
     ---------------------
     !uTxO_With_ScriptDatum' <- OffChainHelpers.getUTxO_With_ScriptDatum scriptID_AC scriptID_Validator_AC uTxOsAtValidator
     ---------------------
@@ -727,7 +731,8 @@ userWithdraw T.PABUserWithdrawParams{..} = do
     ---------------------
         !intervalOffset1 = 1000
         !intervalOffset2 = T.validTimeRange - 1000
-        !validityRange   = LedgerValidityInterval.interval ( now - intervalOffset1 ) (now + intervalOffset2)
+        -- !validityRange   = LedgerValidityInterval.interval ( now - intervalOffset1 ) (now + intervalOffset2)
+        !validityRange   = LedgerIntervalV1.interval ( now - intervalOffset1 ) (now + intervalOffset2)
     ---------------------
         (lookupsTx_Mint_TxID_User_Withdraw, tx_Mint_TxID_User_Withdraw) = OffChainHelpers.mintToken_With_RefPolicy uTxOsAtUser uTxO_With_Script_User_Withdraw (Just redeemer_For_Mint_TxID_User_Withdraw) value_For_Mint_TxID_User_Withdraw validityRange userPPKH
         (lookupsTx_Burn_UserID, tx_Burn_UserID) = OffChainHelpers.burntToken_With_RefPolicy uTxOsAtUser uTxO_With_Script_User_Deposit (Just redeemer_For_Burn_TxID) value_For_Burn_UserID validityRange userPPKH
@@ -772,7 +777,8 @@ userWithdraw T.PABUserWithdrawParams{..} = do
                 LedgerConstraints.mustPayToOtherScriptWithInlineDatum validatorHash (LedgerApiV2.Datum $ PlutusTx.toBuiltinData poolDatum_Out) value_For_PoolDatum P.<>
                 LedgerConstraints.mustSpendScriptOutputWithReference (fst uTxO_With_UserDatum) (T.redeemerValidatorToBuiltinData redeemer_For_Consuming_Validator_Datum) (fst uTxO_With_ScriptDatum) P.<>
                 -- LedgerConstraints.mustPayToPubKey (Ledger.PaymentPubKeyHash user) value_InvestAmount  P.<> 
-                LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+                -- LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+                LedgerConstraints.mustValidateIn validityRange P.<>
                 LedgerConstraints.mustBeSignedBy userPPKH
         ---------------------
         submittedTx <- PlutusContract.submitTxConstraintsWith @DataVoid.Void lookupsTx tx
@@ -905,7 +911,8 @@ userWithdraw T.PABUserWithdrawParams{..} = do
                 LedgerConstraints.mustPayToOtherScriptWithDatumInTx validatorHash (LedgerApiV2.Datum $ PlutusTx.toBuiltinData fundDatum_Out) value_For_FundDatum P.<>
                 LedgerConstraints.mustSpendScriptOutputWithReference (fst uTxO_With_UserDatum) (T.redeemerValidatorToBuiltinData redeemer_For_Consuming_Validator_Datum) (fst uTxO_With_ScriptDatum) P.<>
                 -- LedgerConstraints.mustPayToPubKey (Ledger.PaymentPubKeyHash user) value_InvestAmount  P.<> 
-                LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+                -- LedgerConstraints.mustValidateInTimeRange validityRange P.<>
+                LedgerConstraints.mustValidateIn validityRange P.<>
                 LedgerConstraints.mustBeSignedBy userPPKH
         ---------------------
         submittedTx <- PlutusContract.submitTxConstraintsWith @DataVoid.Void lookupsTx tx

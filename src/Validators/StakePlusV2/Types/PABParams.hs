@@ -48,8 +48,9 @@ import Validators.StakePlusV2.Types.Types           ( Master, PoolParams )
 instance Schema.ToSchema LedgerApiV2.Validator where
   toSchema = Schema.FormSchemaUnit
 
--- instance Schema.ToSchema  LedgerAddress.Address where
---   toSchema = Schema.FormSchemaUnit
+-- TODO: para cuando vuelva a usar plutus-1.1.0, tengo que desactivar esto
+instance Schema.ToSchema  LedgerAddress.Address where
+  toSchema = Schema.FormSchemaUnit
 
 instance Schema.ToSchema   LedgerApiV2.MintingPolicy where
   toSchema = Schema.FormSchemaUnit
