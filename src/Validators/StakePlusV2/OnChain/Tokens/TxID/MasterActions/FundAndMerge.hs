@@ -40,7 +40,7 @@ import           PlutusTx.Prelude                                           ( Bo
 ------------------------------------------------------------------------------------------
 -- Import Internos
 ------------------------------------------------------------------------------------------
-import qualified Validators.StakePlusV2.Helpers                             as Helpers (mkUpdated_PoolDatum_With_NewFundAmountAndMerging, mkUpdated_FundDatum_WithNewFundAmountAndMerging, valueEqualsValue, getFundDatumTypo_FromDatum, getPoolDatumTypo_FromDatum) 
+import qualified Validators.StakePlusV2.Helpers                             as Helpers (mkUpdated_PoolDatum_With_NewFundAmountAndMerging, mkUpdated_FundDatum_WithNewFundAmountAndMerging, unsafeValueEqualsValue, getFundDatumTypo_FromDatum, getPoolDatumTypo_FromDatum) 
 import qualified Validators.StakePlusV2.OnChain.Core.OnChainHelpers         as OnChainHelpers (getInputsWithDatum, getOutputsWithDatum, validateMasterAction, isNFT_Minted_With_AC, isNotTerminated) 
 import qualified Validators.StakePlusV2.OnChain.Tokens.OnChainNFTHelpers    as OnChainNFTHelpers (getTxOut_Datum, getTxOut_Value, validateBurn_Token_Own_CS_Any_TN, checkIfAllAreFromSameAddress, checkIfAllSpendRedeemersAreEqual, getTxOut_Value_And_SomeDatum, getTxOuts_Values_And_SomeDatums) 
 import qualified Validators.StakePlusV2.Types.Constants                     as T (poolID_TN, fundID_TN, txID_Master_FundAndMerge_TN, const_1_PD, const_1_FD)

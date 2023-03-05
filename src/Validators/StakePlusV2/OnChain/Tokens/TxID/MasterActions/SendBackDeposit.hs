@@ -41,7 +41,7 @@ import           PlutusTx.Prelude                                           ( Bo
 ------------------------------------------------------------------------------------------
 -- Import Internos
 ------------------------------------------------------------------------------------------
-import qualified Validators.StakePlusV2.Helpers                             as Helpers (valueIncludesValue, valueEqualsValue, isNFT_With_AC_InValue, getUserDatumTypo_FromDatum, getPoolDatumTypo_FromDatum, getFundDatumTypo_FromDatum, getValueOfAC)
+import qualified Validators.StakePlusV2.Helpers                             as Helpers (valueIncludesValue, unsafeValueEqualsValue, isNFT_With_AC_InValue, getUserDatumTypo_FromDatum, getPoolDatumTypo_FromDatum, getFundDatumTypo_FromDatum, getValueOfAC)
 import qualified Validators.StakePlusV2.OnChain.Core.OnChainHelpers         as OnChainHelpers (getInputsWithDatum, getReferenceInputsWithDatum, getOutputsWithDatum, isTerminated, validateMasterAction, isNFT_Minted_With_AC)
 import qualified Validators.StakePlusV2.OnChain.Tokens.OnChainNFTHelpers    as OnChainNFTHelpers 
 import qualified Validators.StakePlusV2.Types.Constants                     as T (poolID_TN, fundID_TN, userID_TN, txID_Master_SendBackDeposit_TN, txID_User_Harvest_TN, const_1_PD, const_1_UD, const_1_FD)
