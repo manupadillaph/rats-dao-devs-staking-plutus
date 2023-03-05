@@ -46,7 +46,7 @@ import           PlutusTx.Prelude                                           ( Bo
 ------------------------------------------------------------------------------------------
 -- Import Internos
 ------------------------------------------------------------------------------------------
-import qualified Validators.StakePlusV2.Helpers                             as Helpers (getRewardsPerInvest, getFundAmountCanUse_in_FundDatum, unsafeValueEqualsValue, getPoolDatumTypo_FromDatum, getUserDatumTypo_FromDatum, getFundDatumTypo_FromDatum)
+import qualified Validators.StakePlusV2.Helpers                             as Helpers (getRewardsPerInvest, getFundAmountCanUse_in_FundDatum, valueEqualsValue, getPoolDatumTypo_FromDatum, getUserDatumTypo_FromDatum, getFundDatumTypo_FromDatum)
 import qualified Validators.StakePlusV2.OnChain.Core.OnChainHelpers         as OnChainHelpers (getInputsWithDatum, getReferenceInputsWithDatum, getOutputsWithDatum, isNotTerminated, validateUserAction, isNFT_Minted_With_AC, isDateInRange, correctClaimValue)
 import qualified Validators.StakePlusV2.OnChain.Tokens.OnChainNFTHelpers    as OnChainNFTHelpers (validateBurn_Token_Own_CS_Any_TN, checkIfAllAreFromSameAddress, checkIfAllSpendRedeemersAreEqual, getTxOut_Datum, sort_Value_And_FundDatum, getFundDatumListWithNewValues, getTxOut_Datum, getTxOut_Value, getTxOut_Value_And_SomeDatum, getTxOuts_Values_And_SomeDatums)
 import qualified Validators.StakePlusV2.Types.Constants                     as T (poolID_TN, fundID_TN, userID_TN, txID_User_Harvest_TN, const_1_UD)
@@ -196,10 +196,10 @@ validateUserHarvest !pParams !txID_Master_Fund_CS !txID_User_Deposit_CS !ctx !re
                 &&
                 all (
                     \(v, d) ->
-                        -- isJust (find (\(v', d') ->   d == d' && Helpers.unsafeValueEqualsValue v v' ) outputs_TxOuts_Values_And_FundDatums_Ordered)
+                        -- isJust (find (\(v', d') ->   d == d' && Helpers.valueEqualsValue v v' ) outputs_TxOuts_Values_And_FundDatums_Ordered)
                         any (
                             \(v', d') ->
-                                d == d' && Helpers.unsafeValueEqualsValue v v'
+                                d == d' && Helpers.valueEqualsValue v v'
                             ) outputs_TxOuts_Values_And_FundDatums_Ordered
                 ) calculated_TxOuts_Values_And_FundDatums_Ordered
         ------------------
@@ -231,7 +231,7 @@ validateUserHarvest !pParams !txID_Master_Fund_CS !txID_User_Deposit_CS !ctx !re
             ------------------
                 !value_For_UserDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_UserDatum
             in
-                Helpers.unsafeValueEqualsValue value_For_UserDatum_Real value_For_UserDatum_Control
+                Helpers.valueEqualsValue value_For_UserDatum_Real value_For_UserDatum_Control
 
 --------------------------------------------------------------------------------
 

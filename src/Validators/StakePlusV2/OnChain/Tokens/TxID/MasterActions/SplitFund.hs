@@ -40,7 +40,7 @@ import           PlutusTx.Prelude                                           ( Bo
 ------------------------------------------------------------------------------------------
 -- Import Internos
 ------------------------------------------------------------------------------------------
-import qualified Validators.StakePlusV2.Helpers                             as Helpers (getFundAmountCanUse_in_FundDatum, mkUpdated_PoolDatum_With_SplitFundAmount, mkUpdated_FundDatum_With_WithSplitFund, createValueAddingTokensOfCurrencySymbol, getFundDatumTypo_FromDatum, unsafeValueEqualsValue, getPoolDatumTypo_FromDatum)
+import qualified Validators.StakePlusV2.Helpers                             as Helpers (getFundAmountCanUse_in_FundDatum, mkUpdated_PoolDatum_With_SplitFundAmount, mkUpdated_FundDatum_With_WithSplitFund, createValueAddingTokensOfCurrencySymbol, getFundDatumTypo_FromDatum, valueEqualsValue, getPoolDatumTypo_FromDatum)
 import qualified Validators.StakePlusV2.OnChain.Core.OnChainHelpers         as OnChainHelpers (getInputsWithDatum, getOutputsWithDatum, validateMasterAction, isNFT_Minted_With_AC, isNotTerminated) 
 import qualified Validators.StakePlusV2.OnChain.Tokens.OnChainNFTHelpers    as OnChainNFTHelpers (getTxOut_Datum, getTxOut_Value, validateBurn_Token_Own_CS_Any_TN, checkIfAllAreFromSameAddress, checkIfAllSpendRedeemersAreEqual, sort_Value_And_FundDatum, getTxOut_Value_And_SomeDatum, getTxOuts_Values_And_SomeDatums) 
 import qualified Validators.StakePlusV2.Types.Constants                     as T (poolID_TN, fundID_TN, txID_Master_SplitFund_TN, const_1_PD, const_1_FD)
@@ -170,7 +170,7 @@ validateMasterSplitFund !pParams !txID_Master_Fund_CS !ctx !redeemer !inputs_TxO
                 !value_For_PoolDatum_Control = value_In_PoolDatum
                 !value_For_PoolDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_PoolDatum
             in
-                Helpers.unsafeValueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
+                Helpers.valueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
 
         ------------------
         correctOutputs_FundsDatums_And_Values_WithSplitFund :: Bool
@@ -210,13 +210,13 @@ validateMasterSplitFund !pParams !txID_Master_Fund_CS !ctx !redeemer !inputs_TxO
                     length fundDatums_Out_Real_Ordered == length fundDatums_Out_Control_Ordered
                     &&
                     -- all (\(v, d) ->
-                    --     isJust (find (\(v', d') ->   d == d' && Helpers.unsafeValueEqualsValue v v' ) fundDatums_Out_Control_Ordered)
+                    --     isJust (find (\(v', d') ->   d == d' && Helpers.valueEqualsValue v v' ) fundDatums_Out_Control_Ordered)
                     -- ) fundDatums_Out_Real_Ordered
                     all (
                             \(v, d) ->
                                     any (
                                             \(v', d') ->
-                                                    d == d' && Helpers.unsafeValueEqualsValue v v'
+                                                    d == d' && Helpers.valueEqualsValue v v'
                                             ) fundDatums_Out_Control_Ordered
                     ) fundDatums_Out_Real_Ordered
 

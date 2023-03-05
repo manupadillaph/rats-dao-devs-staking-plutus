@@ -39,7 +39,7 @@ import           PlutusTx.Prelude                                           ( Bo
 ------------------------------------------------------------------------------------------
 -- Import Internos
 ------------------------------------------------------------------------------------------
-import qualified Validators.StakePlusV2.Helpers                             as Helpers (mkUpdated_PoolDatum_With_Terminated, unsafeValueEqualsValue, getPoolDatumTypo_FromDatum) 
+import qualified Validators.StakePlusV2.Helpers                             as Helpers (mkUpdated_PoolDatum_With_Terminated, valueEqualsValue, getPoolDatumTypo_FromDatum) 
 import qualified Validators.StakePlusV2.OnChain.Core.OnChainHelpers         as OnChainHelpers (getInputsWithDatum, getOutputsWithDatum, validateMasterAction, isNFT_Minted_With_AC, isNotTerminated) 
 import qualified Validators.StakePlusV2.OnChain.Tokens.OnChainNFTHelpers    as OnChainNFTHelpers (getTxOut_Datum, validateBurn_Token_Own_CS_Any_TN, getTxOut_Value, checkIfAllAreFromSameAddress, checkIfAllSpendRedeemersAreEqual, getTxOut_Value_And_SomeDatum) 
 import qualified Validators.StakePlusV2.Types.Constants                     as T (poolID_TN, txID_Master_TerminatePool_TN, const_1_PD)
@@ -138,7 +138,7 @@ validateMasterTerminatePool !pParams !ctx !redeemer !inputs_TxOut_Values_And_Dat
                 !value_For_PoolDatum_Control = value_In_PoolDatum <> value_For_Mint_TxID_Master_TerminatePool
                 !value_For_PoolDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_PoolDatum
             in  
-                Helpers.unsafeValueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
+                Helpers.valueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
     
 
 --------------------------------------------------------------------------------

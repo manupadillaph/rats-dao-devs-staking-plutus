@@ -41,7 +41,7 @@ import           PlutusTx.Prelude                                           ( Bo
 ------------------------------------------------------------------------------------------
 -- Import Internos
 ------------------------------------------------------------------------------------------
-import qualified Validators.StakePlusV2.Helpers                             as Helpers (valueIncludesValue, unsafeValueEqualsValue, isNFT_With_AC_InValue, getUserDatumTypo_FromDatum, getPoolDatumTypo_FromDatum, getFundDatumTypo_FromDatum, getValueOfAC)
+import qualified Validators.StakePlusV2.Helpers                             as Helpers (valueIncludesValue, valueEqualsValue, isNFT_With_AC_InValue, getUserDatumTypo_FromDatum, getPoolDatumTypo_FromDatum, getFundDatumTypo_FromDatum, getValueOfAC)
 import qualified Validators.StakePlusV2.OnChain.Core.OnChainHelpers         as OnChainHelpers (getInputsWithDatum, getReferenceInputsWithDatum, getOutputsWithDatum, isTerminated, validateMasterAction, isNFT_Minted_With_AC)
 import qualified Validators.StakePlusV2.OnChain.Tokens.OnChainNFTHelpers    as OnChainNFTHelpers 
 import qualified Validators.StakePlusV2.Types.Constants                     as T (poolID_TN, fundID_TN, userID_TN, txID_Master_SendBackDeposit_TN, txID_User_Harvest_TN, const_1_PD, const_1_UD, const_1_FD)
@@ -206,7 +206,7 @@ validateMasterSendBackDeposit !pParams !txID_Master_Fund_CS !txID_User_Deposit_C
                             !value_For_PoolDatum_Control = value_In_PoolDatum <> value_For_Mint_TxID_Master_SendBackDeposit <> value_Of_TxID_User_Harvest
                             !value_For_PoolDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_PoolDatum
                         in
-                            Helpers.unsafeValueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
+                            Helpers.valueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
                     in
                         traceIfFalse "WIO" correctIO &&
                         traceIfFalse "FCNZ" isFundCountZero &&
@@ -248,7 +248,7 @@ validateMasterSendBackDeposit !pParams !txID_Master_Fund_CS !txID_User_Deposit_C
                                 !value_For_FundDatum_Control = value_In_FundDatum <> value_For_Mint_TxID_Master_SendBackDeposit <> value_Of_TxID_User_Harvest
                                 !value_For_FundDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_FundDatum
                             in
-                                Helpers.unsafeValueEqualsValue value_For_FundDatum_Real value_For_FundDatum_Control
+                                Helpers.valueEqualsValue value_For_FundDatum_Real value_For_FundDatum_Control
                     in
                         traceIfFalse "WIO" correctIO &&
                         traceIfFalse "FD" correctOutput_FundDatum_NotChanged && 
