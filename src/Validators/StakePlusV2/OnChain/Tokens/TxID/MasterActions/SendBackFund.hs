@@ -41,7 +41,7 @@ import           PlutusTx.Prelude                                           ( Bo
 ------------------------------------------------------------------------------------------
 -- Import Internos
 ------------------------------------------------------------------------------------------
-import qualified Validators.StakePlusV2.Helpers                             as Helpers (getFundAmountsRemains_ForMaster, mkUpdated_PoolDatum_With_SendBackFund, valueIncludesValue, valueEqualsValue, getPoolDatumTypo_FromDatum)
+import qualified Validators.StakePlusV2.Helpers                             as Helpers (unsafeDatumEqualsDatum, getFundAmountsRemains_ForMaster, mkUpdated_PoolDatum_With_SendBackFund, valueIncludesValue, valueEqualsValue, getPoolDatumTypo_FromDatum)
 import qualified Validators.StakePlusV2.OnChain.Core.OnChainHelpers         as OnChainHelpers (getInputsWithDatum, getOutputsWithDatum, isTerminated, validateMasterAction, isNFT_Minted_With_AC)
 import qualified Validators.StakePlusV2.OnChain.Tokens.OnChainNFTHelpers    as OnChainNFTHelpers (validateBurn_Token_Own_CS_Any_TN, checkIfAllAreFromSameAddress, checkIfAllSpendRedeemersAreEqual, getTxOut_Datum, getTxOut_Value, getTxOut_Value_And_SomeDatum)
 import qualified Validators.StakePlusV2.Types.Constants                     as T (poolID_TN, txID_Master_SendBackFund_TN, const_1_PD)
@@ -179,7 +179,7 @@ validateMasterSendBackFund !pParams !ctx !redeemer !inputs_TxOut_Values_And_Datu
                 !poolDatum_Out_Control = Helpers.mkUpdated_PoolDatum_With_SendBackFund poolDatum_In master_To_SendBack 
                 !poolDatum_Out_Real = OnChainNFTHelpers.getTxOut_Datum output_TxOut_Value_And_PoolDatum
             in
-                poolDatum_Out_Real == poolDatum_Out_Control 
+                poolDatum_Out_Real `Helpers.unsafeDatumEqualsDatum` poolDatum_Out_Control 
         ------------------
         correctOutput_PoolDatum_Value_WithTokens :: Bool
         !correctOutput_PoolDatum_Value_WithTokens =
@@ -190,7 +190,7 @@ validateMasterSendBackFund !pParams !ctx !redeemer !inputs_TxOut_Values_And_Datu
                 -- if haverstIsWithoutTokenName then
                 --     sendBackFundAmountForMaster == getBackFundAmount_Calculated_From_Diff_PoolDatum && value_For_PoolDatum_Real == value_For_PoolDatum_Control
                 -- else
-                Helpers.valueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
+                value_For_PoolDatum_Real `Helpers.valueEqualsValue` value_For_PoolDatum_Control
 
 --------------------------------------------------------------------------------
 

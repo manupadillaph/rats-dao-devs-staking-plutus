@@ -116,6 +116,7 @@ getInputsWithDatum !ctx =
     in 
         [ (txOut, Helpers.fromJust dat) | (txOut, dat) <- txOutReftxOutsAndDatums, isJust dat ]
       
+--------------------------------------------------------------------------------
 
 {- | Get the reference inputs with Datums. -}
 {-# INLINABLE getReferenceInputsWithDatum #-}

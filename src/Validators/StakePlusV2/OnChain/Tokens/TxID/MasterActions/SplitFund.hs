@@ -40,9 +40,9 @@ import           PlutusTx.Prelude                                           ( Bo
 ------------------------------------------------------------------------------------------
 -- Import Internos
 ------------------------------------------------------------------------------------------
-import qualified Validators.StakePlusV2.Helpers                             as Helpers (getFundAmountCanUse_in_FundDatum, mkUpdated_PoolDatum_With_SplitFundAmount, mkUpdated_FundDatum_With_WithSplitFund, createValueAddingTokensOfCurrencySymbol, getFundDatumTypo_FromDatum, valueEqualsValue, getPoolDatumTypo_FromDatum)
+import qualified Validators.StakePlusV2.Helpers                             as Helpers (unsafeDatumEqualsDatum, getFundAmountCanUse_in_FundDatum, mkUpdated_PoolDatum_With_SplitFundAmount, mkUpdated_FundDatum_With_WithSplitFund, createValueAddingTokensOfCurrencySymbol, getFundDatumTypo_FromDatum, valueEqualsValue, getPoolDatumTypo_FromDatum)
 import qualified Validators.StakePlusV2.OnChain.Core.OnChainHelpers         as OnChainHelpers (getInputsWithDatum, getOutputsWithDatum, validateMasterAction, isNFT_Minted_With_AC, isNotTerminated) 
-import qualified Validators.StakePlusV2.OnChain.Tokens.OnChainNFTHelpers    as OnChainNFTHelpers (getTxOut_Datum, getTxOut_Value, validateBurn_Token_Own_CS_Any_TN, checkIfAllAreFromSameAddress, checkIfAllSpendRedeemersAreEqual, sort_Value_And_FundDatum, getTxOut_Value_And_SomeDatum, getTxOuts_Values_And_SomeDatums) 
+import qualified Validators.StakePlusV2.OnChain.Tokens.OnChainNFTHelpers    as OnChainNFTHelpers (valuesAndDatumsEqualsValuesAndDatums, getTxOut_Datum, getTxOut_Value, validateBurn_Token_Own_CS_Any_TN, checkIfAllAreFromSameAddress, checkIfAllSpendRedeemersAreEqual, sort_Value_And_FundDatum, getTxOut_Value_And_SomeDatum, getTxOuts_Values_And_SomeDatums) 
 import qualified Validators.StakePlusV2.Types.Constants                     as T (poolID_TN, fundID_TN, txID_Master_SplitFund_TN, const_1_PD, const_1_FD)
 import qualified Validators.StakePlusV2.Types.DatumsValidator               as T (TxOut_Value_And_Datum, mkFundDatumTypo)
 import qualified Validators.StakePlusV2.Types.RedeemersMint                 as T (Redeemer_TxID (..), RedeemerBurn_TxIDTypo (..), RedeemerMint_TxIDTypo(..))
@@ -160,7 +160,7 @@ validateMasterSplitFund !pParams !txID_Master_Fund_CS !ctx !redeemer !inputs_TxO
                 !poolDatum_Out_Control = Helpers.mkUpdated_PoolDatum_With_SplitFundAmount poolDatum_In master masterAddressStakingCredential minAda_For_FundDatum_New
                 !poolDatum_Out_Real = OnChainNFTHelpers.getTxOut_Datum output_TxOut_Value_And_PoolDatum
             in
-                poolDatum_Out_Real == poolDatum_Out_Control
+                poolDatum_Out_Real `Helpers.unsafeDatumEqualsDatum` poolDatum_Out_Control
         ------------------
         correctOutput_PoolDatum_Value_NotChanged :: Bool
         !correctOutput_PoolDatum_Value_NotChanged =
@@ -170,13 +170,14 @@ validateMasterSplitFund !pParams !txID_Master_Fund_CS !ctx !redeemer !inputs_TxO
                 !value_For_PoolDatum_Control = value_In_PoolDatum
                 !value_For_PoolDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_PoolDatum
             in
-                Helpers.valueEqualsValue value_For_PoolDatum_Real value_For_PoolDatum_Control
+                value_For_PoolDatum_Real `Helpers.valueEqualsValue` value_For_PoolDatum_Control
 
         ------------------
         correctOutputs_FundsDatums_And_Values_WithSplitFund :: Bool
         !correctOutputs_FundsDatums_And_Values_WithSplitFund =  
             let
-                !fundDatums_Out_Real_Ordered = sortBy OnChainNFTHelpers.sort_Value_And_FundDatum outputs_TxOuts_Values_And_FundDatums
+                -- !fundDatums_Out_Real = outputs_TxOuts_Values_And_FundDatums
+                -- !fundDatums_Out_Real_Ordered = sortBy OnChainNFTHelpers.sort_Value_And_FundDatum outputs_TxOuts_Values_And_FundDatums
             ------------------
                 !fundDatum_Split_Out = Helpers.mkUpdated_FundDatum_With_WithSplitFund fundDatum_In_ToSplit splitFundAmount
             ------------------
@@ -204,21 +205,21 @@ validateMasterSplitFund !pParams !txID_Master_Fund_CS !ctx !redeemer !inputs_TxO
                         [ (value_For_FundDatum_Split, fundDatum_Split_Out)
                         , (value_For_FundDatum_New,  fundDatum_New_Out)]
 
-                !fundDatums_Out_Control_Ordered = sortBy OnChainNFTHelpers.sort_Value_And_FundDatum fundDatums_Out_Control
+                -- !fundDatums_Out_Control_Ordered = sortBy OnChainNFTHelpers.sort_Value_And_FundDatum fundDatums_Out_Control
             ------------------
             in
-                    length fundDatums_Out_Real_Ordered == length fundDatums_Out_Control_Ordered
-                    &&
-                    -- all (\(v, d) ->
-                    --     isJust (find (\(v', d') ->   d == d' && Helpers.valueEqualsValue v v' ) fundDatums_Out_Control_Ordered)
-                    -- ) fundDatums_Out_Real_Ordered
-                    all (
-                            \(v, d) ->
-                                    any (
-                                            \(v', d') ->
-                                                    d == d' && Helpers.valueEqualsValue v v'
-                                            ) fundDatums_Out_Control_Ordered
-                    ) fundDatums_Out_Real_Ordered
+                outputs_TxOuts_Values_And_FundDatums `OnChainNFTHelpers.valuesAndDatumsEqualsValuesAndDatums` fundDatums_Out_Control
+
+                -- length fundDatums_Out_Real_Ordered == length fundDatums_Out_Control_Ordered
+                -- &&
+                -- -- all (\(v, d) ->
+                -- --     isJust (find (\(v', d') ->   d == d' && v v' ) `Helpers.valueEqualsValue` fundDatums_Out_Control_Ordered)
+                -- -- ) fundDatums_Out_Real_Ordered
+                -- all (\(v, d) ->
+                --     any (\(v', d') ->
+                --             d `Helpers.unsafeDatumEqualsDatum` d' && v `Helpers.valueEqualsValue` v'
+                --         ) fundDatums_Out_Control_Ordered
+                -- ) fundDatums_Out_Real_Ordered
 
 --------------------------------------------------------------------------------
 

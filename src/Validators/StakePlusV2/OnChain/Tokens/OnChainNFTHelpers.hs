@@ -37,7 +37,7 @@ import           PlutusTx.Prelude                                           ( Bo
 ------------------------------------------------------------------------------------------
 -- Import Internos
 ------------------------------------------------------------------------------------------
-import qualified Validators.StakePlusV2.Helpers                             as Helpers (fromJust, isToken_With_AC_InValue, getFundAmountCanUse_in_FundDatum, mkUpdated_FundDatum_With_NewClaimRewards)
+import qualified Validators.StakePlusV2.Helpers                             as Helpers (flattenValueWithoutZeros, unsafeFlattenValueEqualsFlattenValue, unsafeDatumEqualsDatum, fromJust, isToken_With_AC_InValue, getFundAmountCanUse_in_FundDatum, mkUpdated_FundDatum_With_NewClaimRewards)
 import qualified Validators.StakePlusV2.Types.DatumsValidator               as T (TxOut_Value_And_Datum, TxOut_With_Datum, TxOut_Value_And_FundDatum, DatumValidator, FundDatumTypo (..))
 import qualified Validators.StakePlusV2.Types.RedeemersValidator            as T (RedeemerValidator)
 --import qualified Validators.StakePlusV2.OnChain.Core.OnChainHelpers       as OnChainHelpers
@@ -356,6 +356,35 @@ getTxOuts_Values_And_SomeDatums !ac !getSomeDatumTypo !txOuts_Value_And_Datum =
 --         !txIDInOutWithScriptDatum = [ (value, datum) | (value, datum) <- txOuts_Value_And_Datum, Helpers.isToken_With_AC_InValue value scriptID_AC]
 --     in
 --         [(value, Helpers.getScriptDatumTypo_FromDatum datum) | (value, datum) <- txIDInOutWithScriptDatum ]
+
+-------------------------------------------------------------------------------------------  
+
+{-# INLINABLE valuesAndDatumsEqualsValuesAndDatums #-}
+valuesAndDatumsEqualsValuesAndDatums :: LedgerApiV2.ToData d => [(LedgerApiV2.Value, d)] -> [(LedgerApiV2.Value, d)] -> Bool
+valuesAndDatumsEqualsValuesAndDatums !valuesAndDatums1 !valuesAndDatums2 =
+    let
+        !flattenValuesAndDatums1 = [(Helpers.flattenValueWithoutZeros v, d) | (v, d) <- valuesAndDatums1]
+        !flattenValuesAndDatums2 = [(Helpers.flattenValueWithoutZeros v, d) | (v, d) <- valuesAndDatums2]
+
+        flattenValuesAndDatumsEqualsFlattenValuesAndDatums :: LedgerApiV2.ToData d => [([(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)], d)] -> [([(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)], d)] -> Bool
+        flattenValuesAndDatumsEqualsFlattenValuesAndDatums [] [] = True
+        flattenValuesAndDatumsEqualsFlattenValuesAndDatums ((flattenValue1, d1):xs1) ((flattenValue2, d2):xs2) =
+            if flattenValue1 `Helpers.unsafeFlattenValueEqualsFlattenValue` flattenValue2 && d1 `Helpers.unsafeDatumEqualsDatum` d2 then
+                flattenValuesAndDatumsEqualsFlattenValuesAndDatums xs1 xs2
+            else
+                flattenValuesAndDatumsEqualsFlattenValuesAndDatums2 (flattenValue1, d1) xs1 [(flattenValue2, d2)] xs2
+        flattenValuesAndDatumsEqualsFlattenValuesAndDatums _ _ = False
+
+        flattenValuesAndDatumsEqualsFlattenValuesAndDatums2 :: LedgerApiV2.ToData d => ([(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)], d) -> [([(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)], d)] -> [([(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)], d)] -> [([(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)], d)] -> Bool
+        flattenValuesAndDatumsEqualsFlattenValuesAndDatums2 (flattenValue1, d1) xs1 xs2 ((flattenValue2, d2):xs3) =
+            if flattenValue1 `Helpers.unsafeFlattenValueEqualsFlattenValue` flattenValue2 && d1 `Helpers.unsafeDatumEqualsDatum` d2 then
+                flattenValuesAndDatumsEqualsFlattenValuesAndDatums xs1 (xs2++xs3)
+            else
+                flattenValuesAndDatumsEqualsFlattenValuesAndDatums2 (flattenValue1, d1) xs1 ((flattenValue2, d2):xs2) xs3
+        flattenValuesAndDatumsEqualsFlattenValuesAndDatums2 _ _ _ _ = False
+    
+    in
+        flattenValuesAndDatums1 `flattenValuesAndDatumsEqualsFlattenValuesAndDatums` flattenValuesAndDatums2
 
 -------------------------------------------------------------------------------------------  
 

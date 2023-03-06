@@ -119,7 +119,7 @@ exampleMasterFunder = MasterFunder {
 
 examplePoolDatum :: DatumValidator
 examplePoolDatum = PoolDatum PoolDatumTypo { 
-        pdMasterFunders = [exampleMasterFunder],
+        pdMasterFunders = [exampleMasterFunder,  exampleMasterFunder,  exampleMasterFunder,  exampleMasterFunder],
         pdFundCount = 0,
         pdTotalCashedOut = 0,
         pdClosedAt = Just examplePOSIXTime,

@@ -30,8 +30,9 @@ module Validators.StakePlusV2.Helpers where
 ------------------------------------------------------------------------------------------
 import qualified Ledger.Ada                                        as LedgerAda
 import qualified Ledger.Value                                      as LedgerValue
+import qualified PlutusTx
 import qualified PlutusTx.Builtins                                 as TxBuiltins
-import           PlutusTx.Prelude                                  ( otherwise, Bool(..), Integer, Maybe(..), Ordering(GT, LT), BuiltinByteString, Eq(..), Ord((>), (<=), (>=), (<), compare), AdditiveGroup((-)), AdditiveSemigroup((+)), Semigroup((<>)), (||), consByteString, emptyByteString, lengthOfByteString, (/=), traceError, ($), find, foldl, length, sum, head, sortBy, tail, negate, divide, quotient, remainder, MultiplicativeSemigroup((*)), not, all, zip, (++), (&&))
+import           PlutusTx.Prelude                                  ( otherwise, Bool(..), Integer, Maybe(..), Ordering(GT, LT), BuiltinByteString, Eq(..), Ord((>), (<=), (>=), (<)), AdditiveGroup((-)), AdditiveSemigroup((+)), Semigroup((<>)), (||), consByteString, emptyByteString, lengthOfByteString, (/=), traceError, ($), find, foldl, length, sum, head, sortBy, tail, negate, divide, quotient, remainder, MultiplicativeSemigroup((*)), not, all, zip, (++), (&&))
 import qualified PlutusTx.AssocMap                                 as TxAssocMap
 import qualified PlutusTx.Foldable                                 as TxFold
 import qualified PlutusTx.Ratio                                    as TxRatio
@@ -410,9 +411,11 @@ flattenValue (LedgerValue.Value !mp) =
     in
         f3
 
-{-# INLINABLE flattenValueDeleteZeros #-}
-flattenValueDeleteZeros :: LedgerValue.Value -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
-flattenValueDeleteZeros (LedgerValue.Value !mp) =
+------------------------------------------------------------------------------------------------
+
+{-# INLINABLE flattenValueWithoutZeros #-}
+flattenValueWithoutZeros :: LedgerValue.Value -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
+flattenValueWithoutZeros (LedgerValue.Value !mp) =
     let
         !f1 = TxAssocMap.toList mp
         !f2 = [ ( cs , TxAssocMap.toList mp') | (cs, mp') <- f1 ]
@@ -420,24 +423,186 @@ flattenValueDeleteZeros (LedgerValue.Value !mp) =
     in
         f3
 
-{-# INLINABLE sortFlattenValue #-}
-sortFlattenValue :: LedgerValue.Value -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
-sortFlattenValue (LedgerValue.Value !mp) =
+-------------------------------------------------------------------------------------------
+
+-- {-# INLINABLE sortFlattenValueWithoutZeros #-}
+-- sortFlattenValueWithoutZeros :: LedgerValue.Value -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
+-- sortFlattenValueWithoutZeros  (LedgerValue.Value !mp) =
+--     let
+--         sort_CurrencySymbol :: (LedgerApiV2.CurrencySymbol, a) -> (LedgerApiV2.CurrencySymbol, a) -> Ordering
+--         sort_CurrencySymbol (!cs1, _) (!cs2, _) = compare cs1 cs2
+--         sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
+--         sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
+--         !f1 = sortBy sort_CurrencySymbol (TxAssocMap.toList mp)
+--         !f2 = [ ( cs ,  sortBy sort_TokenName  (TxAssocMap.toList mp')) | (cs, mp') <- f1 ]
+--         !f3 = [ (cs , tn, amt) | (cs, f4) <- f2, (tn, amt) <- f4, amt /= 0 ]
+--     in
+--         f3
+
+-------------------------------------------------------------------------------------------
+
+-- {-# INLINABLE sortFlattenValue #-}
+-- sortFlattenValue :: LedgerValue.Value -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
+-- sortFlattenValue (LedgerValue.Value !mp) =
+--     let
+--         sort_CurrencySymbol :: (LedgerApiV2.CurrencySymbol, a) -> (LedgerApiV2.CurrencySymbol, a) -> Ordering
+--         sort_CurrencySymbol (!cs1, _) (!cs2, _) = compare cs1 cs2
+--         sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
+--         sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
+--         !f1 = sortBy sort_CurrencySymbol (TxAssocMap.toList mp)
+--         !f2 = [ ( cs ,  sortBy sort_TokenName  (TxAssocMap.toList mp')) | (cs, mp') <- f1 ]
+--         !f3 = [ (cs , tn, amt) | (cs, f4) <- f2, (tn, amt) <- f4 ]
+--     in
+--         f3
+
+-- {-# INLINABLE sortFlattenValueList #-}
+-- sortFlattenValueList :: [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
+-- sortFlattenValueList !xs =
+--     let
+--         sort_CurrencySymbolAndTokenName :: (LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, a) -> (LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, a) -> Ordering
+--         sort_CurrencySymbolAndTokenName (!cs1, !tn1, _) (!cs2, !tn2, _) = 
+--             case compare cs1 cs2 of
+--                 EQ -> compare tn1 tn2
+--                 x -> x
+--         !f1 = sortBy sort_CurrencySymbolAndTokenName xs
+--     in
+--         f1
+
+-- {-# INLINABLE normalizeValue #-}
+-- -- no es muy eficiente
+-- normalizeValue :: LedgerApiV2.Value -> LedgerApiV2.Value
+-- normalizeValue = LedgerApiV2.Value . TxAssocMap.fromList . sort . filterRange (/=TxAssocMap.empty)
+--                . mapRange normalizeTokenMap . TxAssocMap.toList . LedgerApiV2.getValue
+--   where normalizeTokenMap = TxAssocMap.fromList . sort . filterRange (/=0) . TxAssocMap.toList
+--         filterRange p kvs = [(k,v) | (k,v) <- kvs, p v]
+--         mapRange f xys = [(x,f y) | (x,y) <- xys]
+--         sort xs = sortBy compare xs
+
+------------------------------------------------------------------------------------------------
+
+{-# INLINABLE valueIncludesValue #-}
+valueIncludesValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+valueIncludesValue !value !valueToFind  =
     let
-        sort_CurrencySymbol :: (LedgerApiV2.CurrencySymbol, a) -> (LedgerApiV2.CurrencySymbol, a) -> Ordering
-        sort_CurrencySymbol (!cs1, _) (!cs2, _) = compare cs1 cs2
-
-        sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
-        sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
-
-        !f1 = sortBy sort_CurrencySymbol (TxAssocMap.toList mp)
-
-        !f2 = [ ( cs ,  sortBy sort_TokenName  (TxAssocMap.toList mp')) | (cs, mp') <- f1 ]
-
-        !f3 = [ (cs , tn, amt) | (cs, f4) <- f2, (tn, amt) <- f4 ]
+        !valueToFind' = flattenValue valueToFind
     in
-        f3
+        all (\(cs, tn, amount) ->
+                let
+                    !ac = LedgerValue.AssetClass (cs, tn)
+                in 
+                    LedgerValue.assetClassValueOf value ac >= amount
+            ) valueToFind'
 
+-------------------------------------------------------------------------------------------
+
+{-# INLINABLE valueEqualsValue #-}
+valueEqualsValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+valueEqualsValue !value1 !value2 =
+    let
+        !flattenValue1 = flattenValueWithoutZeros value1
+        !flattenValue2 = flattenValueWithoutZeros value2
+    in
+        flattenValue1 `unsafeFlattenValueEqualsFlattenValue` flattenValue2 
+
+-- -------------------------------------------------------------------------------------------
+
+-- {-# INLINABLE valueEqualsValue #-}
+-- -- sirve en casos generales
+-- -- sirve cuando hay muchas cs y muchas tn
+-- valueEqualsValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+-- valueEqualsValue !value1 !value2 = 
+--     let
+--         !value1' = flattenValueWithoutZeros value1
+--         !value2' = flattenValueWithoutZeros value2
+--     in
+--         length value1' == length value2' &&
+--         all (\(cs, tn, amount) -> 
+--             let 
+--                 !ac = LedgerValue.AssetClass (cs, tn)
+--             in 
+--                 LedgerValue.assetClassValueOf value2 ac == amount
+--         ) value1'
+
+-------------------------------------------------------------------------------------------
+
+-- {-# INLINABLE valueEqualsValue2 #-}
+-- -- sirve cuando hay mas de 15 assets, misma cs y distintos tn
+-- valueEqualsValue2 :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+-- valueEqualsValue2 !value1 !value2 =
+--     let
+--         !value1' = sortFlattenValueWithoutZeros value1
+--         !value2' = sortFlattenValueWithoutZeros value2
+--     in
+--         TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value1') == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value2')
+
+-------------------------------------------------------------------------------------------
+
+-- {-# INLINABLE valueEqualsValue3 #-}
+-- -- intentando lo mejor de los dos
+-- -- sigue siendo mas eficiente el valueEqualsValue normal.
+-- -- hay casos donde este será mas eficiente, pero aun tengo que investigarlos
+-- valueEqualsValue3 :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+-- valueEqualsValue3 !value1 !value2 =
+--     let
+--         !value1' = flattenValueWithoutZeros value1
+--     in 
+--         if length value1' > 15 then
+--             -- si es mayor que 15 la cantidad me conviene normalizarlo primero y luego comparar con serializacion... NO es cierto: solo si son de la misma cs
+--             let
+--                 !value1'' = sortFlattenValueList value1'
+--                 !value2' = sortFlattenValueWithoutZeros value2
+--             in
+--                 TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value1'') == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value2')
+--         else
+--             -- si es menor que 15 la cantidad me conviene usar el metodo de busqueda y comparar lenghts
+--             let
+--                 !value2' = flattenValueWithoutZeros value2
+--             in
+--                 length value1' == length value2' &&
+--                 all (\(cs, tn, amount) ->
+--                         let
+--                             !ac = LedgerValue.AssetClass (cs, tn)
+--                         in
+--                             LedgerValue.assetClassValueOf value2 ac == amount
+--                     ) value1'
+
+-------------------------------------------------------------------------------------------
+
+{-# INLINABLE unsafeFlattenValueEqualsFlattenValue #-}
+-- flatten value necesita estar estar sin zeros
+unsafeFlattenValueEqualsFlattenValue :: [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> Bool
+unsafeFlattenValueEqualsFlattenValue [] [] = True
+unsafeFlattenValueEqualsFlattenValue ((cs1, tn1, amt1):xs1) ((cs2, tn2, amt2):xs2) =
+    if cs1 == cs2 && tn1 == tn2 && amt1 == amt2 then
+        unsafeFlattenValueEqualsFlattenValue xs1 xs2
+    else
+        let 
+            unsafeFlattenValueEqualsFlattenValue2 :: (LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer) -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> Bool
+            unsafeFlattenValueEqualsFlattenValue2 (cs1', tn1', amt1') xs1' xs2' ((cs2', tn2', amt2'):xs3') =
+                if cs1' == cs2' && tn1' == tn2' && amt1' == amt2' then
+                    unsafeFlattenValueEqualsFlattenValue xs1' (xs2'++xs3')
+                else
+                    unsafeFlattenValueEqualsFlattenValue2 (cs1', tn1', amt1') xs1' ((cs2', tn2', amt2'):xs2') xs3'
+            unsafeFlattenValueEqualsFlattenValue2 _ _ _ _ = False
+        in 
+            unsafeFlattenValueEqualsFlattenValue2 (cs1, tn1, amt1) xs1 [(cs2, tn2, amt2)] xs2
+unsafeFlattenValueEqualsFlattenValue _ _ = False
+
+-------------------------------------------------------------------------------------------
+
+{-# INLINABLE unsafeValueEqualsValue #-}
+-- necesita que los value esten normalizados, o sea, ordenados y sin ceros
+unsafeValueEqualsValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+unsafeValueEqualsValue !value1 !value2 =
+  TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value1) == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value2)
+
+------------------------------------------------------------------------------------------------
+
+{-# INLINABLE unsafeDatumEqualsDatum #-}
+-- tienen que estar normalizados, o sea, mismo orden y mismos campos
+unsafeDatumEqualsDatum :: (PlutusTx.ToData d) => d -> d -> Bool
+unsafeDatumEqualsDatum !dat1 !dat2 =
+  TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData dat1) == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData dat2)
 
 ------------------------------------------------------------------------------------------------
 
@@ -516,50 +681,6 @@ createValueAddingTokensOfCurrencySymbol !ac !cs !acIsWithoutTokenName !value !ca
                         LedgerValue.assetClassValue harvest_AC am <> sumarTokens (tail list) (left - am)
         in
             sumarTokens tokenOfCurrencySymbol_Ordered cantidad
-
-
-------------------------------------------------------------------------------------------------
-
-{-# INLINABLE valueIncludesValue #-}
-valueIncludesValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
-valueIncludesValue !value !valueToFind  =
-    let
-        !valueToFind' = flattenValue valueToFind
-    in
-        all (\(cs, tn, amount) ->
-                let
-                    !ac = LedgerValue.AssetClass (cs, tn)
-                in 
-                    LedgerValue.assetClassValueOf value ac >= amount
-            ) valueToFind'
-
-{-# INLINABLE valueEqualsValue #-}
-valueEqualsValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
-valueEqualsValue !value1 !value2 = 
-    let
-        !value1' = flattenValueDeleteZeros value1
-        !value2' = flattenValueDeleteZeros value2
-    --     -- !value1' = sortFlattenValue value1
-    --     -- !value2' = sortFlattenValue value2
-    in
-        -- value1' == value2' &&
-        length value1' == length value2' &&
-        -- all (\(cs, tn, amount) ->
-        --         isJust (find (\(cs', tn', amount') -> cs == cs' && tn == tn' && amount == amount') value2')
-        --     ) value1'   &&
-        all (\(cs, tn, amount) -> 
-                let 
-                    !ac = LedgerValue.AssetClass (cs, tn)
-                in 
-                    LedgerValue.assetClassValueOf value2 ac == amount
-            ) value1'
-
--------------------------------------------------------------------------------------------
-
-{-# INLINABLE unsafeValueEqualsValue #-}
-unsafeValueEqualsValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
-unsafeValueEqualsValue val val' =
-  TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData val) == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData val')
 
 ------------------------------------------------------------------------------------------------
 

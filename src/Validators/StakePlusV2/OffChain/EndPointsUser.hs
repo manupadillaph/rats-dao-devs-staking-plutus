@@ -868,7 +868,7 @@ userWithdraw T.PABUserWithdrawParams{..} = do
                 ---------------------
                     !value_For_FundDatum_Real = OnChainNFTHelpers.getTxOut_Value output_TxOut_Value_And_FundDatum
                 in
-                    Helpers.valueEqualsValue value_For_FundDatum_Real value_For_FundDatum_Control
+                    value_For_FundDatum_Real `Helpers.valueEqualsValue` value_For_FundDatum_Control
 
 
             formatFundDatumOutputsList list = concat [  ["----", "FundDatum': " ++ P.show  fundDatum, "FundDatum Value: " ++ P.show value_For_FundDatum_] | (fundDatum, value_For_FundDatum_) <- list]
