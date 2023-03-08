@@ -42,11 +42,11 @@ import qualified Plutus.V2.Ledger.Api                                       as L
 import qualified Plutus.V2.Ledger.Contexts                                  as LedgerContextsV2 (ownCurrencySymbol, ScriptContext, TxInfo, scriptContextTxInfo)
 import qualified PlutusTx                                                   (compile, applyCode, liftCode)
 
-import           PlutusTx.Prelude                                           ( Bool, Maybe(Just, Nothing), Eq((==)), BuiltinData, AdditiveGroup((-)), AdditiveSemigroup((+)), Semigroup((<>)), (&&), not, emptyByteString, error, traceError, ($), length, sum, (<$>), (++), sortBy, traceIfFalse, all, any )
+import           PlutusTx.Prelude                                           ( Bool, Maybe(Just, Nothing), Eq((==)), BuiltinData, AdditiveGroup((-)), AdditiveSemigroup((+)), Semigroup((<>)), (&&), not, emptyByteString, error, traceError, ($), length, sum, (<$>), (++), sortBy, traceIfFalse )
 ------------------------------------------------------------------------------------------
 -- Import Internos
 ------------------------------------------------------------------------------------------
-import qualified Validators.StakePlusV2.Helpers                             as Helpers (unsafeDatumEqualsDatum, getRewardsPerInvest, getFundAmountCanUse_in_FundDatum, valueEqualsValue, getPoolDatumTypo_FromDatum, getUserDatumTypo_FromDatum, getFundDatumTypo_FromDatum)
+import qualified Validators.StakePlusV2.Helpers                             as Helpers (getRewardsPerInvest, getFundAmountCanUse_in_FundDatum, valueEqualsValue, getPoolDatumTypo_FromDatum, getUserDatumTypo_FromDatum, getFundDatumTypo_FromDatum)
 import qualified Validators.StakePlusV2.OnChain.Core.OnChainHelpers         as OnChainHelpers (getInputsWithDatum, getReferenceInputsWithDatum, getOutputsWithDatum, isNotTerminated, validateUserAction, isNFT_Minted_With_AC, isDateInRange, correctClaimValue)
 import qualified Validators.StakePlusV2.OnChain.Tokens.OnChainNFTHelpers    as OnChainNFTHelpers (valuesAndDatumsEqualsValuesAndDatums, validateBurn_Token_Own_CS_Any_TN, checkIfAllAreFromSameAddress, checkIfAllSpendRedeemersAreEqual, getTxOut_Datum, sort_Value_And_FundDatum, getFundDatumListWithNewValues, getTxOut_Datum, getTxOut_Value, getTxOut_Value_And_SomeDatum, getTxOuts_Values_And_SomeDatums)
 import qualified Validators.StakePlusV2.Types.Constants                     as T (poolID_TN, fundID_TN, userID_TN, txID_User_Harvest_TN, const_1_UD)

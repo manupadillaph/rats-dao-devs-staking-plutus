@@ -21,7 +21,7 @@ import qualified Ledger.Address                                as LedgerAddress
 import qualified Ledger.Value                                  as LedgerValue
 import qualified Plutonomy
 import qualified Plutus.Script.Utils.V2.Scripts                as UtilsScriptsV2
-import qualified Plutus.V1.Ledger.ProtocolVersions             as LedgerProtocolVersionsV1  
+import qualified Plutus.V1.Ledger.ProtocolVersions             as LedgerProtocolVersionsV1
 import qualified Plutus.V1.Ledger.Scripts                      as LedgerScriptsV1
 import qualified Plutus.V2.Ledger.Api                          as LedgerApiV2
 import qualified Plutus.V2.Ledger.Contexts                     as LedgerContextsV2
@@ -32,33 +32,11 @@ import           PlutusTx.Prelude
 import qualified Prelude                                       as P
 import qualified PlutusTx.Builtins                             as TxBuiltins
 
-import qualified Validators.StakePlusV2.OnChain.Core.OnChainHelpers         as OnChainHelpers
-import qualified Validators.StakePlusV2.Helpers                             as Helpers 
-import qualified Validators.StakePlusV2.Types.Examples         as T  
-import qualified Validators.StakePlusV2.Types.DatumsValidator       as T (DatumValidator, PoolDatumTypo (..), TxOut_With_Datum, DatumValidator( PoolDatum ) )
 ---------------------------------------------------
 
-{-# INLINABLE sortFlattenValueWithoutZeros #-}
-sortFlattenValueWithoutZeros :: LedgerValue.Value -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
-sortFlattenValueWithoutZeros  (LedgerValue.Value !mp) =
-    let
-        sort_CurrencySymbol :: (LedgerApiV2.CurrencySymbol, a) -> (LedgerApiV2.CurrencySymbol, a) -> Ordering
-        sort_CurrencySymbol (!cs1, _) (!cs2, _) = compare cs1 cs2
-
-        sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
-        sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
-
-        !f1 = sortBy sort_CurrencySymbol (TxAssocMap.toList mp)
-
-        !f2 = [ ( cs ,  sortBy sort_TokenName  (TxAssocMap.toList mp')) | (cs, mp') <- f1 ]
-
-        !f3 = [ (cs , tn, amt) | (cs, f4) <- f2, (tn, amt) <- f4, amt /= 0 ]
-    in
-        f3
-
-{-# INLINABLE flattenValueWithoutZeros #-}
-flattenValueWithoutZeros :: LedgerValue.Value -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
-flattenValueWithoutZeros (LedgerValue.Value !mp) =
+{-# INLINABLE flattenMapDeleteZeros #-}
+flattenMapDeleteZeros :: TxAssocMap.Map LedgerApiV2.CurrencySymbol (TxAssocMap.Map LedgerApiV2.TokenName Integer) -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
+flattenMapDeleteZeros !mp =
     let
         !f1 = TxAssocMap.toList mp
         !f2 = [ ( cs , TxAssocMap.toList mp') | (cs, mp') <- f1 ]
@@ -66,12 +44,42 @@ flattenValueWithoutZeros (LedgerValue.Value !mp) =
     in
         f3
 
-{-# INLINABLE sortFlattenValueList #-}
-sortFlattenValueList :: [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
-sortFlattenValueList !xs =
+---------------------------------------------------
+
+{-# INLINABLE flattenAndSortMapDeleteZeros #-}
+flattenAndSortMapDeleteZeros :: TxAssocMap.Map LedgerApiV2.CurrencySymbol (TxAssocMap.Map LedgerApiV2.TokenName Integer) -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
+flattenAndSortMapDeleteZeros !mp =
+    let
+        sort_CurrencySymbol :: (LedgerApiV2.CurrencySymbol, a) -> (LedgerApiV2.CurrencySymbol, a) -> Ordering
+        sort_CurrencySymbol (!cs1, _) (!cs2, _) = compare cs1 cs2
+        sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
+        sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
+        !f1 = sortBy sort_CurrencySymbol (TxAssocMap.toList mp)
+        !f2 = [ ( cs ,  sortBy sort_TokenName  (TxAssocMap.toList mp')) | (cs, mp') <- f1 ]
+        !f3 = [ (cs , tn, amt) | (cs, f4) <- f2, (tn, amt) <- f4, amt /= 0 ]
+    in
+        f3
+
+---------------------------------------------------
+
+{-# INLINABLE flattenValueAndDeleteZeros #-}
+flattenValueAndDeleteZeros :: LedgerValue.Value -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
+flattenValueAndDeleteZeros (LedgerValue.Value !mp) = flattenMapDeleteZeros mp
+
+---------------------------------------------------
+
+{-# INLINABLE flattenAndSortValueAndDeleteZeros #-}
+flattenAndSortValueAndDeleteZeros :: LedgerValue.Value -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
+flattenAndSortValueAndDeleteZeros  (LedgerValue.Value !mp) = flattenAndSortMapDeleteZeros mp
+
+---------------------------------------------------
+
+{-# INLINABLE sortFlattenedValue #-}
+sortFlattenedValue :: [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)]
+sortFlattenedValue !xs =
     let
         sort_CurrencySymbolAndTokenName :: (LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, a) -> (LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, a) -> Ordering
-        sort_CurrencySymbolAndTokenName (!cs1, !tn1, _) (!cs2, !tn2, _) = 
+        sort_CurrencySymbolAndTokenName (!cs1, !tn1, _) (!cs2, !tn2, _) =
             case compare cs1 cs2 of
                 EQ -> compare tn1 tn2
                 x -> x
@@ -79,326 +87,722 @@ sortFlattenValueList !xs =
     in
         f1
 
+---------------------------------------------------
+
 {-# INLINABLE normalizeValue #-}
 normalizeValue :: LedgerApiV2.Value -> LedgerApiV2.Value
-normalizeValue = LedgerApiV2.Value . TxAssocMap.fromList . sort . filterRange (/=TxAssocMap.empty)
+normalizeValue = LedgerApiV2.Value . TxAssocMap.fromList . sort' . filterRange (/=TxAssocMap.empty)
                . mapRange normalizeTokenMap . TxAssocMap.toList . LedgerApiV2.getValue
-  where normalizeTokenMap = TxAssocMap.fromList . sort . filterRange (/=0) . TxAssocMap.toList
+  where normalizeTokenMap = TxAssocMap.fromList . sort' . filterRange (/=0) . TxAssocMap.toList
         filterRange p kvs = [(k,v) | (k,v) <- kvs, p v]
         mapRange f xys = [(x,f y) | (x,y) <- xys]
-        sort xs = sortBy compare xs
+        sort' xs = sortBy compare xs
 
 ---------------------------------------------------
 
-{-# INLINABLE valueEqualsValue #-}
--- sirve cuando hay menos de 15 assets
-valueEqualsValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
-valueEqualsValue !value1 !value2 =
-    let
-        !value1' = flattenValueWithoutZeros value1
-        !value2' = flattenValueWithoutZeros value2
-    in
-        length value1' == length value2' &&
-        all (\(cs, tn, amount) ->
-            let
-                !ac = LedgerValue.AssetClass (cs, tn)
-            in
-                LedgerValue.assetClassValueOf value2 ac == amount
-        ) value1'
+{-# INLINABLE flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros #-}
+flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros :: [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> Bool
+flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros [] [] = True
+flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros ((!cs1, !tn1, !amt1):(!xs1)) ((!cs2, !tn2, !amt2):(!xs2)) 
+    | cs1 == cs2 && tn1 == tn2 && amt1 == amt2 = flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros xs1 xs2
+    | otherwise = 
+        let
+            flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros' :: (LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer) -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> Bool
+            flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros' (!cs1', !tn1', !amt1') !xs1' !xs2' ((!cs2', !tn2', !amt2'):(!xs3')) 
+                | cs1' == cs2' && tn1' == tn2' && amt1' == amt2' = flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros xs1' (xs2'++xs3')
+                | otherwise = flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros' (cs1', tn1', amt1') xs1' ((cs2', tn2', amt2'):xs2') xs3'
+            flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros' _ _ _ _ = False
+        in
+            flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros' (cs1, tn1, amt1) xs1 [(cs2, tn2, amt2)] xs2
+flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros _ _ = False
+
+---------------------------------------------------
+
+{-# INLINABLE listTNEqualsListTN #-}
+listTNEqualsListTN :: [(LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.TokenName, Integer)] -> Bool
+listTNEqualsListTN [] [] = True
+listTNEqualsListTN [] ((_, !am2):(!xs2)) 
+    | am2 == 0 =                    
+        listTNEqualsListTN [] xs2 
+    | otherwise = 
+        False
+listTNEqualsListTN ((!tn1, !am1):(!xs1)) ((!tn2, !am2):(!xs2)) 
+    | am1 == 0 =                    
+        listTNEqualsListTN xs1 ((tn2, am2):xs2) 
+    | tn1 == tn2 && am1 == am2 =    
+        listTNEqualsListTN xs1 xs2
+    | otherwise =
+        let 
+            listTNEqualsListTN' :: (LedgerApiV2.TokenName, Integer) -> [(LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.TokenName, Integer)] -> Bool
+            listTNEqualsListTN' (!tn1', !am1') !xs1' !xs2' ((!tn2', !am2'):(!xs3')) 
+                | tn1' == tn2' && am1' == am2'  = listTNEqualsListTN xs1' (xs2'++xs3')
+                | otherwise                     = listTNEqualsListTN' (tn1', am1') xs1' ((tn2', am2'):xs2') xs3'
+            listTNEqualsListTN' _ _ _ _ = False
+        in
+            listTNEqualsListTN' (tn1, am1) xs1 [(tn2, am2)] xs2
+listTNEqualsListTN _ _ = False
+
+---------------------------------------------------
+
+{-# INLINABLE listCSEqualsListCS #-}
+listCSEqualsListCS :: [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
+listCSEqualsListCS [] [] = True
+listCSEqualsListCS ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2)) 
+    | cs1 == cs2 =
+        let
+            !listTN1 = TxAssocMap.toList mp1
+            !listTN2 = TxAssocMap.toList mp2
+        in
+            listTNEqualsListTN listTN1 listTN2 && listCSEqualsListCS xs1 xs2
+    | otherwise =
+        let 
+            listCSEqualsListCS' :: (LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer) -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
+            listCSEqualsListCS' (!cs1', !mp1') !xs1' !xs2' ((!cs2', !mp2'):xs3') = 
+                if cs1' == cs2' then
+                    let
+                        !listTN1 = TxAssocMap.toList mp1'
+                        !listTN2 = TxAssocMap.toList mp2'
+                    in
+                        listTNEqualsListTN listTN1 listTN2 && listCSEqualsListCS xs1' (xs2'++xs3')
+                else
+                    listCSEqualsListCS' (cs1', mp1') xs1' ((cs2', mp2'):xs2') xs3'
+            listCSEqualsListCS' _ _ _ _ = False
+        in
+            listCSEqualsListCS' (cs1, mp1) xs1 [(cs2, mp2)] xs2
+listCSEqualsListCS _ _ = False
+
+---------------------------------------------------
+
+
+{-# INLINABLE listCSEqualsListCS'Sorted #-}
+listCSEqualsListCS'Sorted :: [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
+listCSEqualsListCS'Sorted [] [] = True
+listCSEqualsListCS'Sorted ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2)) 
+    | cs1 == cs2 =
+        let
+            sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
+            sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
+            
+            !listTN1 = sortBy sort_TokenName (TxAssocMap.toList mp1)
+            !listTN2 = sortBy sort_TokenName (TxAssocMap.toList mp2)
+        in
+            listTNEqualsListTN listTN1 listTN2 && listCSEqualsListCS'Sorted xs1 xs2
+    | otherwise =
+        let 
+            listCSEqualsListCS'Sorted' :: (LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer) -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
+            listCSEqualsListCS'Sorted' (!cs1', !mp1') !xs1' !xs2' ((!cs2', !mp2'):xs3') = 
+                if cs1' == cs2' then
+                    let
+                        sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
+                        sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
+
+                        !listTN1 = sortBy sort_TokenName (TxAssocMap.toList mp1')
+                        !listTN2 = sortBy sort_TokenName (TxAssocMap.toList mp2')
+                    in
+                        listTNEqualsListTN listTN1 listTN2 && listCSEqualsListCS'Sorted xs1' (xs2'++xs3')
+                else
+                    listCSEqualsListCS'Sorted' (cs1', mp1') xs1' ((cs2', mp2'):xs2') xs3'
+            listCSEqualsListCS'Sorted' _ _ _ _ = False
+        in
+            listCSEqualsListCS'Sorted' (cs1, mp1) xs1 [(cs2, mp2)] xs2
+listCSEqualsListCS'Sorted _ _ = False
+
+
+---------------------------------------------------
+
+
+{-# INLINABLE listCSEqualsListCS'SmartSorted #-}
+listCSEqualsListCS'SmartSorted :: [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
+listCSEqualsListCS'SmartSorted [] [] = True
+listCSEqualsListCS'SmartSorted ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2)) 
+    | cs1 == cs2 =
+        let
+            !listTN1 = TxAssocMap.toList mp1
+            !listTN2 = TxAssocMap.toList mp2
+
+            !(listTN1', listTN2') = 
+                if length listTN1 > 3 then
+                    let
+                        sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
+                        sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
+                    in
+                        (sortBy sort_TokenName listTN1, sortBy sort_TokenName listTN2)
+                else
+                    (listTN1, listTN2)
+        in
+            listTNEqualsListTN listTN1' listTN2' && listCSEqualsListCS'SmartSorted xs1 xs2
+    | otherwise =
+        let 
+            listCSEqualsListCS'SmartSorted' :: (LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer) -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
+            listCSEqualsListCS'SmartSorted' (!cs1', !mp1') !xs1' !xs2' ((!cs2', !mp2'):xs3') = 
+                if cs1' == cs2' then
+                    let
+                        !listTN1 = TxAssocMap.toList mp1'
+                        !listTN2 = TxAssocMap.toList mp2'
+
+                        !(listTN1', listTN2') = 
+                            if length listTN1 > 3 then
+                                let
+                                    sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
+                                    sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
+                                in
+                                    (sortBy sort_TokenName listTN1, sortBy sort_TokenName listTN2)
+                            else
+                                (listTN1, listTN2)
+                    in
+                        listTNEqualsListTN listTN1' listTN2' && listCSEqualsListCS'SmartSorted xs1' (xs2'++xs3')
+                else
+                    listCSEqualsListCS'SmartSorted' (cs1', mp1') xs1' ((cs2', mp2'):xs2') xs3'
+            listCSEqualsListCS'SmartSorted' _ _ _ _ = False
+        in
+            listCSEqualsListCS'SmartSorted' (cs1, mp1) xs1 [(cs2, mp2)] xs2
+listCSEqualsListCS'SmartSorted _ _ = False
+
+---------------------------------------------------
+
+{-# INLINABLE sortedAndFlattenedValueWithoutZerosEqualsSortedAndFlattenedValueWithoutZeros #-}
+sortedAndFlattenedValueWithoutZerosEqualsSortedAndFlattenedValueWithoutZeros :: [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> Bool
+sortedAndFlattenedValueWithoutZerosEqualsSortedAndFlattenedValueWithoutZeros !sortedFlattenValue1 !sortedFlattenValue2 =
+    TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData sortedFlattenValue1) == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData sortedFlattenValue2)
+
+---------------------------------------------------
+
+{-# INLINABLE normalizedValueEqualsNormalizedValue #-}
+normalizedValueEqualsNormalizedValue ::LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+normalizedValueEqualsNormalizedValue !normalizedValue1 !normalizedValue2 =
+    TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData normalizedValue1) == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData normalizedValue2)
 
 ---------------------------------------------------
 
 {-# INLINABLE valueEqualsValue1 #-}
+{- Convierte los values a una lista [(cs, tn, am)] y luego las compara, eliminando los elementos a medida que los encuentra -}
 valueEqualsValue1 :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
 valueEqualsValue1 !value1 !value2 =
     let
-        !value1' = flattenValueWithoutZeros value1
-        !value2' = flattenValueWithoutZeros value2
-        
-        compareValues :: [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> Bool
-        compareValues [] [] = True
-        compareValues ((cs1, tn1, amt1):xs1) ((cs2, tn2, amt2):xs2) =
-            if cs1 == cs2 && tn1 == tn2 && amt1 == amt2 then
-                compareValues xs1 xs2
-            else
-                compareValues2 (cs1, tn1, amt1) xs1 [(cs2, tn2, amt2)] xs2
-        compareValues _ _ = False
-
-        compareValues2 :: (LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer) -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> Bool
-        compareValues2 (cs1, tn1, amt1) xs1 xs2 ((cs2, tn2, amt2):xs3) =
-            if cs1 == cs2 && tn1 == tn2 && amt1 == amt2 then
-                compareValues xs1 (xs2++xs3)
-            else
-                compareValues2 (cs1, tn1, amt1) xs1 ((cs2, tn2, amt2):xs2) xs3
-        compareValues2 _ _ _ _ = False
-    
+        !flattenedValue1 = flattenValueAndDeleteZeros value1
+        !flattenedValue2 = flattenValueAndDeleteZeros value2
     in
-        compareValues value1' value2' 
+        flattenedValue1 `flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros` flattenedValue2
+
+{-# INLINABLE valueEqualsValue1'Sorted #-}
+{- Convierte los values a una lista ordenada [(cs, tn, am)] y luego las compara, eliminando los elementos a medida que los encuentra -}
+valueEqualsValue1'Sorted :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+valueEqualsValue1'Sorted !value1 !value2 =
+    let
+        !flattenedValue1 = flattenAndSortValueAndDeleteZeros value1
+        !flattenedValue2 = flattenAndSortValueAndDeleteZeros value2
+    in
+        flattenedValue1 `flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros` flattenedValue2
 
 ---------------------------------------------------
 
 {-# INLINABLE valueEqualsValue2 #-}
--- sirve cuando hay mas de 15 assets
+{- Convierte los values a una lista [(cs, tn, am)] para comparar la cantidad de elementos y luego usa el builtin LedgerValue.assetClassValueOf para buscar los elementos de la lista en el value -}
 valueEqualsValue2 :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
 valueEqualsValue2 !value1 !value2 =
     let
-        !value1' = sortFlattenValueWithoutZeros value1
-        !value2' = sortFlattenValueWithoutZeros value2
+        !flattenedValue1 = flattenValueAndDeleteZeros value1
+        !flattenedValue2 = flattenValueAndDeleteZeros value2
     in
-        TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value1') == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value2')
+        length flattenedValue1 == length flattenedValue2 &&
+        all (\(!cs, !tn, !amount) ->
+            let
+                !ac = LedgerValue.AssetClass (cs, tn)
+            in
+                LedgerValue.assetClassValueOf value2 ac == amount
+        ) flattenedValue1
 
 ---------------------------------------------------
 
 {-# INLINABLE valueEqualsValue3 #-}
--- poco eficiente
 valueEqualsValue3 :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
-valueEqualsValue3 !value1 !value2 =
+valueEqualsValue3 (LedgerValue.Value !mp1) (LedgerValue.Value !mp2) =
     let
-        !value1' = normalizeValue value1
-        !value2' = normalizeValue value2
+        !flattenedValue1 = flattenMapDeleteZeros mp1
+        !flattenedValue2 = flattenMapDeleteZeros mp2
+
+        valueOfCSAndTNInMap :: TxAssocMap.Map LedgerApiV2.CurrencySymbol (TxAssocMap.Map LedgerApiV2.TokenName Integer) -> LedgerApiV2.CurrencySymbol -> LedgerApiV2.TokenName -> Integer
+        valueOfCSAndTNInMap !mpCS !cur !tn =
+            case TxAssocMap.lookup cur mpCS of
+                Nothing     -> 0 
+                Just mapTN  -> DataMaybe.fromMaybe 0 (TxAssocMap.lookup tn mapTN)
     in
-        TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value1') == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value2')
+        length flattenedValue1 == length flattenedValue2 &&
+        all (\(cs, tn, amount) -> valueOfCSAndTNInMap mp2 cs tn == amount) flattenedValue1
+
+{-# INLINABLE valueEqualsValue3'Sorted #-}
+valueEqualsValue3'Sorted :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+valueEqualsValue3'Sorted (LedgerValue.Value !mp1) (LedgerValue.Value !mp2) =
+    let
+        !flattenedValue1 = flattenAndSortMapDeleteZeros mp1
+        !flattenedValue2 = flattenAndSortMapDeleteZeros mp2
+
+        valueOfCSAndTNInMap :: TxAssocMap.Map LedgerApiV2.CurrencySymbol (TxAssocMap.Map LedgerApiV2.TokenName Integer) -> LedgerApiV2.CurrencySymbol -> LedgerApiV2.TokenName -> Integer
+        valueOfCSAndTNInMap !mpCS !cur !tn =
+            case TxAssocMap.lookup cur mpCS of
+                Nothing     -> 0 
+                Just mapTN  -> DataMaybe.fromMaybe 0 (TxAssocMap.lookup tn mapTN)
+    in
+        length flattenedValue1 == length flattenedValue2 &&
+        all (\(cs, tn, amount) -> valueOfCSAndTNInMap mp2 cs tn == amount) flattenedValue1
 
 ---------------------------------------------------
 
 {-# INLINABLE valueEqualsValue4 #-}
--- intentando lo mejor de los dos
 valueEqualsValue4 :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
-valueEqualsValue4 !value1 !value2 =
+valueEqualsValue4 (LedgerValue.Value !mp1) (LedgerValue.Value !mp2) =
     let
-        !value1' = flattenValueWithoutZeros value1
-    in 
-        if length value1' > 15 then
-            -- si es mayor que 15 la cantidad me conviene normalizarlo primero y luego comparar con serializacion
-            let
-                !value1'' = sortFlattenValueList value1'
-                !value2' = sortFlattenValueWithoutZeros value2
-            in
-                TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value1'') == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value2')
-        else
-            -- si es menor que 15 la cantidad me conviene usar el metodo de busqueda y comparar lenghts
-            let
-                !value2' = flattenValueWithoutZeros value2
-            in
-                length value1' == length value2' &&
-                all (\(cs, tn, amount) ->
-                        let
-                            !ac = LedgerValue.AssetClass (cs, tn)
-                        in
-                            LedgerValue.assetClassValueOf value2 ac == amount
-                    ) value1'
-            
----------------------------------------------------
-
-{-# INLINABLE unsafeValueEqualsValue #-}
--- tienen que estar normalizados, o sea, ordenados y sin ceros
-unsafeValueEqualsValue :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
-unsafeValueEqualsValue !value1 !value2 =
-  TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value1) == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData value2)
-
-
-{-# INLINABLE unsafeDatumEqualsDatum #-}
--- tienen que estar normalizados, o sea, mismo orden y mismos campos
-unsafeDatumEqualsDatum :: (PlutusTx.ToData d) => d -> d -> Bool
-unsafeDatumEqualsDatum !dat1 !dat2 =
-  TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData dat1) == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData dat2)
-
-
----------------------------------------------------
-
-{-# INLINABLE valuesAndDatumsEqualsValuesAndDatums #-}
-valuesAndDatumsEqualsValuesAndDatums :: LedgerApiV2.ToData d => [(LedgerApiV2.Value, d)] -> [(LedgerApiV2.Value, d)] -> Bool
-valuesAndDatumsEqualsValuesAndDatums !valuesAndDatums1 !valuesAndDatums2 =
-    let
-        !flattenValuesAndDatums1 = [(Helpers.flattenValueWithoutZeros v, d) | (v, d) <- valuesAndDatums1]
-        !flattenValuesAndDatums2 = [(Helpers.flattenValueWithoutZeros v, d) | (v, d) <- valuesAndDatums2]
-
-        flattenValuesAndDatumsEqualsFlattenValuesAndDatums :: LedgerApiV2.ToData d => [([(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)], d)] -> [([(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)], d)] -> Bool
-        flattenValuesAndDatumsEqualsFlattenValuesAndDatums [] [] = True
-        flattenValuesAndDatumsEqualsFlattenValuesAndDatums ((flattenValue1, d1):xs1) ((flattenValue2, d2):xs2) =
-            if flattenValue1 `Helpers.unsafeFlattenValueEqualsFlattenValue` flattenValue2 && d1 `Helpers.unsafeDatumEqualsDatum` d2 then
-                flattenValuesAndDatumsEqualsFlattenValuesAndDatums xs1 xs2
-            else
-                flattenValuesAndDatumsEqualsFlattenValuesAndDatums2 (flattenValue1, d1) xs1 [(flattenValue2, d2)] xs2
-        flattenValuesAndDatumsEqualsFlattenValuesAndDatums _ _ = False
-
-        flattenValuesAndDatumsEqualsFlattenValuesAndDatums2 :: LedgerApiV2.ToData d => ([(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)], d) -> [([(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)], d)] -> [([(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)], d)] -> [([(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)], d)] -> Bool
-        flattenValuesAndDatumsEqualsFlattenValuesAndDatums2 (flattenValue1, d1) xs1 xs2 ((flattenValue2, d2):xs3) =
-            if flattenValue1 `Helpers.unsafeFlattenValueEqualsFlattenValue` flattenValue2 && d1 `Helpers.unsafeDatumEqualsDatum` d2 then
-                flattenValuesAndDatumsEqualsFlattenValuesAndDatums xs1 (xs2++xs3)
-            else
-                flattenValuesAndDatumsEqualsFlattenValuesAndDatums2 (flattenValue1, d1) xs1 ((flattenValue2, d2):xs2) xs3
-        flattenValuesAndDatumsEqualsFlattenValuesAndDatums2 _ _ _ _ = False
-    
+        !listCS1 = TxAssocMap.toList mp1
+        !listCS2 = TxAssocMap.toList mp2
     in
-        flattenValuesAndDatums1 `flattenValuesAndDatumsEqualsFlattenValuesAndDatums` flattenValuesAndDatums2
+        listCS1 `listCSEqualsListCS` listCS2    
 
 ---------------------------------------------------
 
-{-# INLINABLE valuesAndDatumsEqualsValuesAndDatums2 #-}
-valuesAndDatumsEqualsValuesAndDatums2 :: LedgerApiV2.ToData d => [(LedgerApiV2.Value, d)] -> [(LedgerApiV2.Value, d)] -> Bool
-valuesAndDatumsEqualsValuesAndDatums2 !valuesAndDatums1 !valuesAndDatums2 =    
-    length valuesAndDatums1 == length valuesAndDatums2
-    &&
-    all (\(v, d) ->
-        any (\(v', d') ->
-                d `Helpers.unsafeDatumEqualsDatum` d' && v `Helpers.valueEqualsValue` v'
-            ) valuesAndDatums2
-    ) valuesAndDatums1
+{-# INLINABLE valueEqualsValue4'Sorted #-}
+valueEqualsValue4'Sorted :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+valueEqualsValue4'Sorted (LedgerValue.Value !mp1) (LedgerValue.Value !mp2) =
+    let
+        sort_CurrencySymbol :: (LedgerApiV2.CurrencySymbol, a) -> (LedgerApiV2.CurrencySymbol, a) -> Ordering
+        sort_CurrencySymbol (!cs1, _) (!cs2, _) = compare cs1 cs2
+        
+        !listCS1 = sortBy sort_CurrencySymbol (TxAssocMap.toList mp1)
+        !listCS2 = sortBy sort_CurrencySymbol (TxAssocMap.toList mp2)
+    in
+        listCS1 `listCSEqualsListCS'Sorted` listCS2    
 
 ---------------------------------------------------
 
-{-# INLINABLE valuesAndDatumsEqualsValuesAndDatums3 #-}
-valuesAndDatumsEqualsValuesAndDatums3 :: LedgerApiV2.ToData d => [(LedgerApiV2.Value, d)] -> [(LedgerApiV2.Value, d)] -> Bool
-valuesAndDatumsEqualsValuesAndDatums3 !valuesAndDatums1 !valuesAndDatums2 =    
-    length valuesAndDatums1 == length valuesAndDatums2
-    &&
-    all (
-        \(v, d) -> 
-            isJust (find (\(v', d') ->  d `Helpers.unsafeDatumEqualsDatum` d' && v `Helpers.valueEqualsValue` v' ) valuesAndDatums2)
-    ) valuesAndDatums1
+{-# INLINABLE valueEqualsValue4'SmartSorted #-}
+valueEqualsValue4'SmartSorted :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+valueEqualsValue4'SmartSorted (LedgerValue.Value !mp1) (LedgerValue.Value !mp2) =
+    let
+        sort_CurrencySymbol :: (LedgerApiV2.CurrencySymbol, a) -> (LedgerApiV2.CurrencySymbol, a) -> Ordering
+        sort_CurrencySymbol (!cs1, _) (!cs2, _) = compare cs1 cs2
+        
+        !listCS1 = TxAssocMap.toList mp1
+        !listCS2 = TxAssocMap.toList mp2
+
+        (!listCS1',!listCS2') = 
+            if length listCS1 > 3 then
+                (sortBy sort_CurrencySymbol listCS1, sortBy sort_CurrencySymbol listCS2)
+            else
+                (listCS1, listCS2)
+
+    in
+        listCS1' `listCSEqualsListCS'SmartSorted` listCS2'   
 
 ---------------------------------------------------
 
-{-# INLINABLE valuesAndDatumsEqualsValuesAndDatums4 #-}
-valuesAndDatumsEqualsValuesAndDatums4 :: LedgerApiV2.ToData d => [(LedgerApiV2.Value, d)] -> [(LedgerApiV2.Value, d)] -> Bool
-valuesAndDatumsEqualsValuesAndDatums4 !valuesAndDatums1 !valuesAndDatums2 =    
-    TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData valuesAndDatums1) == TxBuiltins.serialiseData (LedgerApiV2.toBuiltinData valuesAndDatums2)
+{-# INLINABLE valueEqualsValue5 #-}
+valueEqualsValue5 :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+valueEqualsValue5 !value1 !value2 =
+   let
+        !sortedFlattenedValue1 = flattenAndSortValueAndDeleteZeros value1
+        !sortedFlattenedValue2 = flattenAndSortValueAndDeleteZeros value2
+    in
+        sortedFlattenedValue1 `sortedAndFlattenedValueWithoutZerosEqualsSortedAndFlattenedValueWithoutZeros` sortedFlattenedValue2
 
 ---------------------------------------------------
 
+{-# INLINABLE valueEqualsValue6 #-}
+valueEqualsValue6 :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+valueEqualsValue6 !value1 !value2 =
+    let
+        !normalizedValue1 = normalizeValue value1
+        !normalizedValue2 = normalizeValue value2
+    in
+        normalizedValue1 `normalizedValueEqualsNormalizedValue` normalizedValue2
+
+---------------------------------------------------
+
+{-# INLINABLE valueEqualsValue7 #-}
+valueEqualsValue7 :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+valueEqualsValue7 !value1 !value2 =
+    value1 == value2
+
+---------------------------------------------------
+
+-- {-# INLINABLE valueEqualsValue6 #-}
+-- valueEqualsValue6 :: LedgerApiV2.Value -> LedgerApiV2.Value -> Bool
+-- valueEqualsValue6 !value1 !value2 =
+--     let
+--         !flattenedValue1 = flattenValueAndDeleteZeros value1
+--     in
+--         if length flattenedValue1 > 15 then
+--             let
+--                 !sortedFlattenedValue1 = sortFlattenedValue flattenedValue1
+--                 !sortedFlattenedValue2 = flattenAndSortValueAndDeleteZeros value2
+--             in
+--                 sortedFlattenedValue1 `sortedAndFlattenedValueWithoutZerosEqualsSortedAndFlattenedValueWithoutZeros` sortedFlattenedValue2
+--         else
+--             let
+--                 !flattenedValue2 = flattenValueAndDeleteZeros value2
+--             in
+--                 flattenedValue1 `flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros` flattenedValue2
+
+---------------------------------------------------
 
 {-# INLINABLE mkPolicy1 #-}
 mkPolicy1 :: BuiltinData -> BuiltinData -> ()
-mkPolicy1 !mintRedeemerRaw !ctxRaw  =
+mkPolicy1 _ !ctxRaw  =
     let
         !ctx = LedgerApiV2.unsafeFromBuiltinData @LedgerContextsV2.ScriptContext ctxRaw
         !inputs = [ LedgerApiV2.txInInfoResolved txInfoInput | txInfoInput <- LedgerApiV2.txInfoInputs (LedgerContextsV2.scriptContextTxInfo ctx)]
         !outputs = LedgerApiV2.txInfoOutputs (LedgerContextsV2.scriptContextTxInfo ctx)
 
-        !inputs_WithDatum = OnChainHelpers.getInputsWithDatum ctx
-        !outputs_WithDatum = OnChainHelpers.getOutputsWithDatum ctx
-        !inputs_TxOut_Values_And_Datums = [ (LedgerApiV2.txOutValue txtout, dat) | (txtout, dat) <- inputs_WithDatum ]
-        !outputs_TxOut_Values_And_Datums = [ (LedgerApiV2.txOutValue txtout, dat) | (txtout, dat) <- outputs_WithDatum ]
+        !inputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- inputs ]
+        !outputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- outputs ]
 
-        -- !poolDatum_IN = Helpers.getPoolDatumTypo_FromDatum (snd $ inputs_WithDatum!!0)
-        -- !poolDatum_OUT = Helpers.getPoolDatumTypo_FromDatum (snd $ outputs_WithDatum!!0)
+        !value_Real = outputs_Values!!0
+
+        !value1 = inputs_Values!!0
+
+        -- value2: a new currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value3: existing currency symbol (in value2) and same name
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value1) and a new name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+        -- value for ADA
+        !valueADA = LedgerAda.lovelaceValueOf 433
+
+        -- !value_For_Control = value1 <> value2 <> value3 <> value4 <> valueADA
+        !value_For_Control =  valueADA <> value4 <> value3 <> value2 <> value1
+    in
+       if
+            traceIfFalse "error" (value_For_Control `valueEqualsValue1` value_Real)
+        then ()
+        else error ()
+
+---------------------------------------------------
+
+{-# INLINABLE mkPolicy1'Sorted #-}
+mkPolicy1'Sorted :: BuiltinData -> BuiltinData -> ()
+mkPolicy1'Sorted _ !ctxRaw  =
+    let
+        !ctx = LedgerApiV2.unsafeFromBuiltinData @LedgerContextsV2.ScriptContext ctxRaw
+        !inputs = [ LedgerApiV2.txInInfoResolved txInfoInput | txInfoInput <- LedgerApiV2.txInfoInputs (LedgerContextsV2.scriptContextTxInfo ctx)]
+        !outputs = LedgerApiV2.txInfoOutputs (LedgerContextsV2.scriptContextTxInfo ctx)
 
         !inputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- inputs ]
         !outputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- outputs ]
-        
+
+        !value_Real = outputs_Values!!0
 
         !value1 = inputs_Values!!0
-        !value2 = LedgerAda.lovelaceValueOf 500
-        !value3_Control = value2 <> value1
-        !value3_Real = outputs_Values!!0
 
-        !value4_Real = outputs_Values!!1
+        -- value2: a new currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value3: existing currency symbol (in value2) and same name
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value1) and a new name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+        -- value for ADA
+        !valueADA = LedgerAda.lovelaceValueOf 433
 
-        !value_Tk1     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "4aa8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff33")) 1
-        !value_Tk2     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "5aa8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff44")) 100
-        !value_ADA = LedgerAda.lovelaceValueOf 500
-        -- !value_ADA1 = LedgerAda.lovelaceValueOf 200
-        -- !value_ADA2 = LedgerAda.lovelaceValueOf 300
-        !value_For_Control1 =  value_Tk1 <> value_Tk2  <> value_ADA
-        !value_For_Control2 =  value_ADA <> value_Tk1  <> value_Tk2
+        -- !value_For_Control = value1 <> value2 <> value3 <> value4 <> valueADA
+        !value_For_Control =  valueADA <> value4 <> value3 <> value2 <> value1
     in
-       if 
-            -- traceIfFalse "error1" (value3_Control `valueEqualsValue` value3_Real) &&
-            -- traceIfFalse "error2" (value_For_Control1 `valueEqualsValue` value4_Real) &&
-            -- traceIfFalse "error3" (value_For_Control2 `valueEqualsValue` value4_Real) -- &&
-            -- traceIfFalse "datum1" (poolDatum_IN == poolDatum_OUT)
-            traceIfFalse "datum1" (inputs_TxOut_Values_And_Datums `valuesAndDatumsEqualsValuesAndDatums` outputs_TxOut_Values_And_Datums)
-
+       if
+            traceIfFalse "error" (value_For_Control `valueEqualsValue1'Sorted` value_Real)
         then ()
         else error ()
+
+---------------------------------------------------
 
 {-# INLINABLE mkPolicy2 #-}
 mkPolicy2 :: BuiltinData -> BuiltinData -> ()
-mkPolicy2 !mintRedeemerRaw !ctxRaw  =
+mkPolicy2 _ !ctxRaw  =
     let
         !ctx = LedgerApiV2.unsafeFromBuiltinData @LedgerContextsV2.ScriptContext ctxRaw
         !inputs = [ LedgerApiV2.txInInfoResolved txInfoInput | txInfoInput <- LedgerApiV2.txInfoInputs (LedgerContextsV2.scriptContextTxInfo ctx)]
         !outputs = LedgerApiV2.txInfoOutputs (LedgerContextsV2.scriptContextTxInfo ctx)
 
-        !inputs_WithDatum = OnChainHelpers.getInputsWithDatum ctx
-        !outputs_WithDatum = OnChainHelpers.getOutputsWithDatum ctx
-        !inputs_TxOut_Values_And_Datums = [ (LedgerApiV2.txOutValue txtout, dat) | (txtout, dat) <- inputs_WithDatum ]
-        !outputs_TxOut_Values_And_Datums = [ (LedgerApiV2.txOutValue txtout, dat) | (txtout, dat) <- outputs_WithDatum ]
-
-        -- !poolDatum_IN = Helpers.getPoolDatumTypo_FromDatum (snd $ inputs_WithDatum!!0)
-        -- !poolDatum_OUT = Helpers.getPoolDatumTypo_FromDatum (snd $ outputs_WithDatum!!0)
-
         !inputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- inputs ]
         !outputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- outputs ]
-        
+
+        !value_Real = outputs_Values!!0
+
         !value1 = inputs_Values!!0
-        !value2 = LedgerAda.lovelaceValueOf 500
-        !value3_Control = value2 <> value1
-        !value3_Real = outputs_Values!!0
 
-        !value4_Real = outputs_Values!!1
+        -- value2: a new currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value3: existing currency symbol (in value2) and same name
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value1) and a new name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+        -- value for ADA
+        !valueADA = LedgerAda.lovelaceValueOf 433
 
-        !value_Tk1     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "4aa8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff33")) 1
-        !value_Tk2     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "5aa8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff44")) 100
-        !value_ADA = LedgerAda.lovelaceValueOf 500
-        !value_For_Control1 =  value_Tk1 <> value_Tk2  <> value_ADA
-        !value_For_Control2 =  value_ADA <> value_Tk1  <> value_Tk2
+        !value_For_Control =  valueADA <> value4 <> value3 <> value2 <> value1
     in
-        if 
-            -- traceIfFalse "error1" (value3_Control `valueEqualsValue1` value3_Real) &&
-            -- traceIfFalse "error2" (value_For_Control1 `valueEqualsValue1` value4_Real) &&
-            -- traceIfFalse "error3" (value_For_Control2 `valueEqualsValue1` value4_Real)
-            traceIfFalse "datum1" (inputs_TxOut_Values_And_Datums `valuesAndDatumsEqualsValuesAndDatums2` outputs_TxOut_Values_And_Datums)
-
+       if
+            traceIfFalse "error" (value_For_Control `valueEqualsValue2` value_Real)
         then ()
         else error ()
 
+---------------------------------------------------
 
 {-# INLINABLE mkPolicy3 #-}
 mkPolicy3 :: BuiltinData -> BuiltinData -> ()
-mkPolicy3 !mintRedeemerRaw !ctxRaw  =
+mkPolicy3 _ !ctxRaw  =
     let
         !ctx = LedgerApiV2.unsafeFromBuiltinData @LedgerContextsV2.ScriptContext ctxRaw
-
         !inputs = [ LedgerApiV2.txInInfoResolved txInfoInput | txInfoInput <- LedgerApiV2.txInfoInputs (LedgerContextsV2.scriptContextTxInfo ctx)]
         !outputs = LedgerApiV2.txInfoOutputs (LedgerContextsV2.scriptContextTxInfo ctx)
-
-        !inputs_WithDatum = OnChainHelpers.getInputsWithDatum ctx
-        !outputs_WithDatum = OnChainHelpers.getOutputsWithDatum ctx
-
-        !inputs_TxOut_Values_And_Datums = [ (LedgerApiV2.txOutValue txtout, dat) | (txtout, dat) <- inputs_WithDatum ]
-        !outputs_TxOut_Values_And_Datums = [ (LedgerApiV2.txOutValue txtout, dat) | (txtout, dat) <- outputs_WithDatum ]
-
-        -- !sw = OnChainHelpers.tracetxOuts (fst <$> inputs_WithDatum) ctx
-        -- !sw2 = OnChainHelpers.tracetxOuts (fst <$> outputs_WithDatum) ctx
-
-        -- !poolDatum_IN = Helpers.getPoolDatumTypo_FromDatum (snd $ inputs_WithDatum!!0)
-        -- !poolDatum_OUT = Helpers.getPoolDatumTypo_FromDatum (snd $ outputs_WithDatum!!0)
 
         !inputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- inputs ]
         !outputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- outputs ]
 
+        !value_Real = outputs_Values!!0
+
         !value1 = inputs_Values!!0
-        !value2 = LedgerAda.lovelaceValueOf 500
-        !value3_Control = value2 <> value1
-        !value3_Real = outputs_Values!!0
 
-        !value4_Real = outputs_Values!!1
+        -- value2: a new currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value3: existing currency symbol (in value2) and same name
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value1) and a new name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+        -- value for ADA
+        !valueADA = LedgerAda.lovelaceValueOf 433
 
-        !value_Tk1     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "4aa8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff33")) 1
-        !value_Tk2     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "5aa8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff44")) 100
-        !value_ADA = LedgerAda.lovelaceValueOf 500
-        !value_For_Control1 =  value_Tk1 <> value_Tk2  <> value_ADA
-        !value_For_Control2 =  value_ADA <> value_Tk1  <> value_Tk2
-
+        !value_For_Control =  valueADA <> value4 <> value3 <> value2 <> value1
     in
-        if 
-            -- traceIfFalse "error1" (value3_Control `valueEqualsValue2` value3_Real) &&
-            -- traceIfFalse "error2" (value_For_Control1 `valueEqualsValue2` value4_Real) &&
-            -- traceIfFalse "error3" (value_For_Control2 `valueEqualsValue2` value4_Real) 
-            traceIfFalse "datum1" (inputs_TxOut_Values_And_Datums `valuesAndDatumsEqualsValuesAndDatums3` outputs_TxOut_Values_And_Datums)
+       if
+            traceIfFalse "error1" (value_For_Control `valueEqualsValue3` value_Real)
+        then ()
+        else error ()
 
+---------------------------------------------------
+
+{-# INLINABLE mkPolicy3'Sorted #-}
+mkPolicy3'Sorted :: BuiltinData -> BuiltinData -> ()
+mkPolicy3'Sorted _ !ctxRaw  =
+    let
+        !ctx = LedgerApiV2.unsafeFromBuiltinData @LedgerContextsV2.ScriptContext ctxRaw
+        !inputs = [ LedgerApiV2.txInInfoResolved txInfoInput | txInfoInput <- LedgerApiV2.txInfoInputs (LedgerContextsV2.scriptContextTxInfo ctx)]
+        !outputs = LedgerApiV2.txInfoOutputs (LedgerContextsV2.scriptContextTxInfo ctx)
+
+        !inputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- inputs ]
+        !outputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- outputs ]
+
+        !value_Real = outputs_Values!!0
+
+        !value1 = inputs_Values!!0
+
+        -- value2: a new currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value3: existing currency symbol (in value2) and same name
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value1) and a new name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+        -- value for ADA
+        !valueADA = LedgerAda.lovelaceValueOf 433
+
+        !value_For_Control =  valueADA <> value4 <> value3 <> value2 <> value1
+    in
+       if
+            traceIfFalse "error1" (value_For_Control `valueEqualsValue3'Sorted` value_Real)
+        then ()
+        else error ()
+
+---------------------------------------------------
+
+{-# INLINABLE mkPolicy4 #-}
+mkPolicy4 :: BuiltinData -> BuiltinData -> ()
+mkPolicy4 _ !ctxRaw  =
+    let
+        !ctx = LedgerApiV2.unsafeFromBuiltinData @LedgerContextsV2.ScriptContext ctxRaw
+        !inputs = [ LedgerApiV2.txInInfoResolved txInfoInput | txInfoInput <- LedgerApiV2.txInfoInputs (LedgerContextsV2.scriptContextTxInfo ctx)]
+        !outputs = LedgerApiV2.txInfoOutputs (LedgerContextsV2.scriptContextTxInfo ctx)
+
+        !inputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- inputs ]
+        !outputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- outputs ]
+
+        !value_Real = outputs_Values!!0
+
+        !value1 = inputs_Values!!0
+
+        -- value2: a new currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value3: existing currency symbol (in value2) and same name
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value1) and a new name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+        -- value for ADA
+        !valueADA = LedgerAda.lovelaceValueOf 433
+
+        !value_For_Control =  valueADA <> value4 <> value3 <> value2 <> value1
+    in
+       if
+            traceIfFalse "error" (value_For_Control `valueEqualsValue4` value_Real)
+        then ()
+        else error ()
+
+---------------------------------------------------
+
+{-# INLINABLE mkPolicy4'Sorted #-}
+mkPolicy4'Sorted :: BuiltinData -> BuiltinData -> ()
+mkPolicy4'Sorted _ !ctxRaw  =
+    let
+        !ctx = LedgerApiV2.unsafeFromBuiltinData @LedgerContextsV2.ScriptContext ctxRaw
+        !inputs = [ LedgerApiV2.txInInfoResolved txInfoInput | txInfoInput <- LedgerApiV2.txInfoInputs (LedgerContextsV2.scriptContextTxInfo ctx)]
+        !outputs = LedgerApiV2.txInfoOutputs (LedgerContextsV2.scriptContextTxInfo ctx)
+
+        !inputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- inputs ]
+        !outputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- outputs ]
+
+        !value_Real = outputs_Values!!0
+
+        !value1 = inputs_Values!!0
+
+        -- value2: a new currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value3: existing currency symbol (in value2) and same name
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value1) and a new name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+        -- value for ADA
+        !valueADA = LedgerAda.lovelaceValueOf 433
+
+        !value_For_Control =  valueADA <> value4 <> value3 <> value2 <> value1
+    in
+       if
+            traceIfFalse "error" (value_For_Control `valueEqualsValue4'Sorted` value_Real)
+        then ()
+        else error ()
+
+---------------------------------------------------
+
+{-# INLINABLE mkPolicy4'SmartSorted #-}
+mkPolicy4'SmartSorted :: BuiltinData -> BuiltinData -> ()
+mkPolicy4'SmartSorted _ !ctxRaw  =
+    let
+        !ctx = LedgerApiV2.unsafeFromBuiltinData @LedgerContextsV2.ScriptContext ctxRaw
+        !inputs = [ LedgerApiV2.txInInfoResolved txInfoInput | txInfoInput <- LedgerApiV2.txInfoInputs (LedgerContextsV2.scriptContextTxInfo ctx)]
+        !outputs = LedgerApiV2.txInfoOutputs (LedgerContextsV2.scriptContextTxInfo ctx)
+
+        !inputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- inputs ]
+        !outputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- outputs ]
+
+        !value_Real = outputs_Values!!0
+
+        !value1 = inputs_Values!!0
+
+        -- value2: a new currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value3: existing currency symbol (in value2) and same name
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value1) and a new name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+        -- value for ADA
+        !valueADA = LedgerAda.lovelaceValueOf 433
+
+        !value_For_Control =  valueADA <> value4 <> value3 <> value2 <> value1
+    in
+       if
+            traceIfFalse "error" (value_For_Control `valueEqualsValue4'SmartSorted` value_Real)
+        then ()
+        else error ()
+
+---------------------------------------------------
+
+{-# INLINABLE mkPolicy5 #-}
+mkPolicy5 :: BuiltinData -> BuiltinData -> ()
+mkPolicy5 _ !ctxRaw  =
+    let
+        !ctx = LedgerApiV2.unsafeFromBuiltinData @LedgerContextsV2.ScriptContext ctxRaw
+        !inputs = [ LedgerApiV2.txInInfoResolved txInfoInput | txInfoInput <- LedgerApiV2.txInfoInputs (LedgerContextsV2.scriptContextTxInfo ctx)]
+        !outputs = LedgerApiV2.txInfoOutputs (LedgerContextsV2.scriptContextTxInfo ctx)
+
+        !inputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- inputs ]
+        !outputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- outputs ]
+
+        !value_Real = outputs_Values!!0
+
+        !value1 = inputs_Values!!0
+
+        -- value2: a new currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value3: existing currency symbol (in value2) and same name
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value1) and a new name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+        -- value for ADA
+        !valueADA = LedgerAda.lovelaceValueOf 433
+
+        !value_For_Control =  valueADA <> value4 <> value3 <> value2 <> value1
+    in
+       if
+            traceIfFalse "error" (value_For_Control `valueEqualsValue5` value_Real)
+        then ()
+        else error ()
+
+---------------------------------------------------
+
+{-# INLINABLE mkPolicy6 #-}
+mkPolicy6 :: BuiltinData -> BuiltinData -> ()
+mkPolicy6 _ !ctxRaw  =
+    let
+        !ctx = LedgerApiV2.unsafeFromBuiltinData @LedgerContextsV2.ScriptContext ctxRaw
+        !inputs = [ LedgerApiV2.txInInfoResolved txInfoInput | txInfoInput <- LedgerApiV2.txInfoInputs (LedgerContextsV2.scriptContextTxInfo ctx)]
+        !outputs = LedgerApiV2.txInfoOutputs (LedgerContextsV2.scriptContextTxInfo ctx)
+
+        !inputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- inputs ]
+        !outputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- outputs ]
+
+        !value_Real = outputs_Values!!0
+
+        !value1 = inputs_Values!!0
+
+        -- value2: a new currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value3: existing currency symbol (in value2) and same name
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value1) and a new name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+        -- value for ADA
+        !valueADA = LedgerAda.lovelaceValueOf 433
+
+        !value_For_Control =  valueADA <> value4 <> value3 <> value2 <> value1
+    in
+       if
+            traceIfFalse "error" (value_For_Control `valueEqualsValue6` value_Real)
+        then ()
+        else error ()
+
+---------------------------------------------------
+
+{-# INLINABLE mkPolicy7 #-}
+mkPolicy7 :: BuiltinData -> BuiltinData -> ()
+mkPolicy7 _ !ctxRaw  =
+    let
+        !ctx = LedgerApiV2.unsafeFromBuiltinData @LedgerContextsV2.ScriptContext ctxRaw
+        !inputs = [ LedgerApiV2.txInInfoResolved txInfoInput | txInfoInput <- LedgerApiV2.txInfoInputs (LedgerContextsV2.scriptContextTxInfo ctx)]
+        !outputs = LedgerApiV2.txInfoOutputs (LedgerContextsV2.scriptContextTxInfo ctx)
+
+        !inputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- inputs ]
+        !outputs_Values = [ LedgerApiV2.txOutValue txtout | txtout <- outputs ]
+
+        !value_Real = outputs_Values!!0
+
+        !value1 = inputs_Values!!0
+
+        -- value2: a new currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value3: existing currency symbol (in value2) and same name
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value1) and a new name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+        -- value for ADA
+        !valueADA = LedgerAda.lovelaceValueOf 433
+
+        !value_For_Control =  valueADA <> value4 <> value3 <> value2 <> value1
+    in
+       if
+            traceIfFalse "error" (value_For_Control `valueEqualsValue7` value_Real)
         then ()
         else error ()
 
@@ -408,6 +812,10 @@ mkPolicy3 !mintRedeemerRaw !ctxRaw  =
 policy1 :: LedgerApiV2.MintingPolicy
 policy1 = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy1 ||])
 
+{-# INLINEABLE policy1'Sorted #-}
+policy1'Sorted :: LedgerApiV2.MintingPolicy
+policy1'Sorted = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy1'Sorted ||])
+
 {-# INLINEABLE policy2 #-}
 policy2 :: LedgerApiV2.MintingPolicy
 policy2 = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy2 ||])
@@ -416,12 +824,46 @@ policy2 = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy2 ||
 policy3 :: LedgerApiV2.MintingPolicy
 policy3 = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy3 ||])
 
+{-# INLINEABLE policy3'Sorted #-}
+policy3'Sorted :: LedgerApiV2.MintingPolicy
+policy3'Sorted = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy3'Sorted ||])
+
+{-# INLINEABLE policy4 #-}
+policy4 :: LedgerApiV2.MintingPolicy
+policy4 = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy4 ||])
+
+{-# INLINEABLE policy4'Sorted #-}
+policy4'Sorted :: LedgerApiV2.MintingPolicy
+policy4'Sorted = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy4'Sorted ||])
+
+{-# INLINEABLE policy4'SmartSorted #-}
+policy4'SmartSorted :: LedgerApiV2.MintingPolicy
+policy4'SmartSorted = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy4'SmartSorted ||])
+
+{-# INLINEABLE policy5 #-}
+policy5 :: LedgerApiV2.MintingPolicy
+policy5 = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy5 ||])
+
+{-# INLINEABLE policy6 #-}
+policy6 :: LedgerApiV2.MintingPolicy
+policy6 = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy6 ||])
+
+{-# INLINEABLE policy7 #-}
+policy7 :: LedgerApiV2.MintingPolicy
+policy7 = LedgerApiV2.mkMintingPolicyScript $$(PlutusTx.compile [|| mkPolicy7 ||])
+
 ---------------------------------------------------
 
 {-# INLINEABLE policy1_fromPlutonomy #-}
 policy1_fromPlutonomy :: LedgerApiV2.MintingPolicy
 policy1_fromPlutonomy = Plutonomy.optimizeUPLC $ Plutonomy.mintingPolicyToPlutus $ Plutonomy.mkMintingPolicyScript
     $$(PlutusTx.compile [|| mkPolicy1 ||])
+
+
+{-# INLINEABLE policy1'Sorted_fromPlutonomy #-}
+policy1'Sorted_fromPlutonomy :: LedgerApiV2.MintingPolicy
+policy1'Sorted_fromPlutonomy = Plutonomy.optimizeUPLC $ Plutonomy.mintingPolicyToPlutus $ Plutonomy.mkMintingPolicyScript
+    $$(PlutusTx.compile [|| mkPolicy1'Sorted ||])
 
 {-# INLINEABLE policy2_fromPlutonomy #-}
 policy2_fromPlutonomy :: LedgerApiV2.MintingPolicy
@@ -433,6 +875,41 @@ policy3_fromPlutonomy :: LedgerApiV2.MintingPolicy
 policy3_fromPlutonomy = Plutonomy.optimizeUPLC $ Plutonomy.mintingPolicyToPlutus $ Plutonomy.mkMintingPolicyScript
     $$(PlutusTx.compile [|| mkPolicy3 ||])
 
+{-# INLINEABLE policy3'Sorted_fromPlutonomy #-}
+policy3'Sorted_fromPlutonomy :: LedgerApiV2.MintingPolicy
+policy3'Sorted_fromPlutonomy = Plutonomy.optimizeUPLC $ Plutonomy.mintingPolicyToPlutus $ Plutonomy.mkMintingPolicyScript
+    $$(PlutusTx.compile [|| mkPolicy3'Sorted ||])
+
+{-# INLINEABLE policy4_fromPlutonomy #-}
+policy4_fromPlutonomy :: LedgerApiV2.MintingPolicy
+policy4_fromPlutonomy = Plutonomy.optimizeUPLC $ Plutonomy.mintingPolicyToPlutus $ Plutonomy.mkMintingPolicyScript
+    $$(PlutusTx.compile [|| mkPolicy4 ||])
+
+{-# INLINEABLE policy4'Sorted_fromPlutonomy #-}
+policy4'Sorted_fromPlutonomy :: LedgerApiV2.MintingPolicy
+policy4'Sorted_fromPlutonomy = Plutonomy.optimizeUPLC $ Plutonomy.mintingPolicyToPlutus $ Plutonomy.mkMintingPolicyScript
+    $$(PlutusTx.compile [|| mkPolicy4'Sorted ||])
+
+{-# INLINEABLE policy4'SmartSorted_fromPlutonomy #-}
+policy4'SmartSorted_fromPlutonomy :: LedgerApiV2.MintingPolicy
+policy4'SmartSorted_fromPlutonomy = Plutonomy.optimizeUPLC $ Plutonomy.mintingPolicyToPlutus $ Plutonomy.mkMintingPolicyScript
+    $$(PlutusTx.compile [|| mkPolicy4'SmartSorted ||])
+
+{-# INLINEABLE policy5_fromPlutonomy #-}
+policy5_fromPlutonomy :: LedgerApiV2.MintingPolicy
+policy5_fromPlutonomy = Plutonomy.optimizeUPLC $ Plutonomy.mintingPolicyToPlutus $ Plutonomy.mkMintingPolicyScript
+    $$(PlutusTx.compile [|| mkPolicy5 ||])
+
+{-# INLINEABLE policy6_fromPlutonomy #-}
+policy6_fromPlutonomy :: LedgerApiV2.MintingPolicy
+policy6_fromPlutonomy = Plutonomy.optimizeUPLC $ Plutonomy.mintingPolicyToPlutus $ Plutonomy.mkMintingPolicyScript
+    $$(PlutusTx.compile [|| mkPolicy6 ||])
+
+{-# INLINEABLE policy7_fromPlutonomy #-}
+policy7_fromPlutonomy :: LedgerApiV2.MintingPolicy
+policy7_fromPlutonomy = Plutonomy.optimizeUPLC $ Plutonomy.mintingPolicyToPlutus $ Plutonomy.mkMintingPolicyScript
+    $$(PlutusTx.compile [|| mkPolicy5 ||])
+
 ---------------------------------------------------
 
 curSymbol :: LedgerApiV2.MintingPolicy -> LedgerApiV2.CurrencySymbol
@@ -443,55 +920,70 @@ curSymbol = UtilsScriptsV2.scriptCurrencySymbol
 evaluate :: P.IO ()
 evaluate =
     let
+        !value_Tk01 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk01")) 1
+        !value_Tk02 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk02")) 1
+        !value_Tk03 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk03")) 1
+        !value_Tk04 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk04")) 1
+        !value_Tk05 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk05")) 1
+        !value_Tk06 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2", LedgerApiV2.TokenName "tk06")) 1
+        !value_Tk07 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2", LedgerApiV2.TokenName "tk07")) 1
+        !value_Tk08 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2", LedgerApiV2.TokenName "tk08")) 1
+        !value_Tk09 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2", LedgerApiV2.TokenName "tk09")) 1
+        !value_Tk10 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2", LedgerApiV2.TokenName "tk10")) 1
+        !value_Tk11 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3", LedgerApiV2.TokenName "tk11")) 1
+        !value_Tk12 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3", LedgerApiV2.TokenName "tk12")) 1
+        !value_Tk13 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3", LedgerApiV2.TokenName "tk13")) 1
+        !value_Tk14 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3", LedgerApiV2.TokenName "tk14")) 1
+        !value_Tk15 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3", LedgerApiV2.TokenName "tk15")) 1
+        !value_Tk16 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4", LedgerApiV2.TokenName "tk16")) 1
+        !value_Tk17 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4", LedgerApiV2.TokenName "tk17")) 1
+        !value_Tk18 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4", LedgerApiV2.TokenName "tk18")) 1
+        !value_Tk19 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4", LedgerApiV2.TokenName "tk19")) 1
+        !value_Tk20 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4", LedgerApiV2.TokenName "tk20")) 1
+        !value_Tk21 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa5", LedgerApiV2.TokenName "tk21")) 1
+        !value_Tk22 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa5", LedgerApiV2.TokenName "tk22")) 1
+        !value_Tk23 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa5", LedgerApiV2.TokenName "tk23")) 1
+        !value_Tk24 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa5", LedgerApiV2.TokenName "tk24")) 1
+        !value_Tk25 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa5", LedgerApiV2.TokenName "tk25")) 1
+        !value_Tk26 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa6", LedgerApiV2.TokenName "tk26")) 1
+        !value_Tk27 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa6", LedgerApiV2.TokenName "tk27")) 1
+        !value_Tk28 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa6", LedgerApiV2.TokenName "tk28")) 1
+        !value_Tk29 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa6", LedgerApiV2.TokenName "tk29")) 1
+        !value_Tk30 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa6", LedgerApiV2.TokenName "tk30")) 1
+        !value_Tk31 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa7", LedgerApiV2.TokenName "tk31")) 1
+        !value_Tk32 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa7", LedgerApiV2.TokenName "tk32")) 1
+        !value_Tk33 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa7", LedgerApiV2.TokenName "tk33")) 1
+        !value_Tk34 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa7", LedgerApiV2.TokenName "tk34")) 1
+        !value_Tk35 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa7", LedgerApiV2.TokenName "tk35")) 1
+        !value_Tk36 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa8", LedgerApiV2.TokenName "tk36")) 1
+        !value_Tk37 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa8", LedgerApiV2.TokenName "tk37")) 1
+        !value_Tk38 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa8", LedgerApiV2.TokenName "tk38")) 1
+        !value_Tk39 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa8", LedgerApiV2.TokenName "tk39")) 1
+        !value_Tk40 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa8", LedgerApiV2.TokenName "tk40")) 1
 
-        !value_Tk1     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "6aa8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff1")) 1
-        !value_Tk2     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "6aa8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff2")) 1
-        !value_Tk3     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "6aa8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff3")) 1
-        !value_Tk4     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "6aa8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff4")) 1
-        !value_Tk5     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "33a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff5")) 1
-        !value_Tk6     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "33a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff6")) 1
-        !value_Tk7     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "33a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff7")) 1
-        !value_Tk8     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "33a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff8")) 1
-        !value_Tk9     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "33a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff9")) 1
-        !value_Tk11    = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "33a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "ffdd11")) 1
-        !value_Tk21    = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "33a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "ffdd21")) 1
-        !value_Tk31    = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "33a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "ffdd31")) 1
-        !value_Tk41    = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "6aa8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "ffdd41")) 1
-        !value_Tk51    = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "44a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "ffdd51")) 1
-        !value_Tk61    = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "44a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "ffdd61")) 1
-        !value_Tk71    = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "44a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "ffdd71")) 1
-        !value_Tk81    = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "44a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "ffdd81")) 1
-        !value_Tk91    = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "44a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "ffdd91")) 1
-        !value_Tk111   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "44a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee111")) 1
-        !value_Tk211   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "44a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee211")) 1
-        !value_Tk311   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "44a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee311")) 1
-        !value_Tk411   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "55a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee411")) 1
-        !value_Tk511   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "55a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee511")) 1
-        !value_Tk611   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "55a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee611")) 1
-        !value_Tk711   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "55a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee711")) 1
-        !value_Tk811   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "55a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee811")) 1
-        !value_Tk911   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "55a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee911")) 1
+        !testValuesList = [
+            value_Tk33, value_Tk32, value_Tk31, value_Tk34, value_Tk35, 
+            value_Tk06, value_Tk07, value_Tk10, value_Tk09, value_Tk08, 
+            value_Tk16, value_Tk17, value_Tk18, value_Tk19, value_Tk20, 
+            value_Tk01, value_Tk03, value_Tk02, value_Tk04, value_Tk05, 
+            value_Tk21, value_Tk22, value_Tk23, value_Tk24, value_Tk25, 
+            value_Tk12, value_Tk11, value_Tk13, value_Tk15, value_Tk14, 
+            value_Tk28, value_Tk27, value_Tk26, value_Tk29, value_Tk30, 
+            value_Tk36, value_Tk40, value_Tk38, value_Tk39, value_Tk37
+            ]
+
+        !testValues =  [ foldl (<>) mempty (P.take i testValuesList) | i <- [0..40] ]
+
+        testEqMethods :: LedgerValue.Value -> P.IO ()
+        testEqMethods =  evaluateCaseInEqMethods
+
+        testMintingPolicies :: LedgerValue.Value -> P.IO ()
+        testMintingPolicies = evaluateCaseInMintingPolicy
+
+    in do
+        mapM_ testEqMethods testValues
+        mapM_ testMintingPolicies testValues 
         
-        !value_Tk1111   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "66a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee1111")) 1
-        !value_Tk2111   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "66a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee2111")) 1
-        !value_Tk3111   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "66a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee3111")) 1
-        !value_Tk4111   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "66a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee4111")) 1
-        !value_Tk5111   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "66a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee5111")) 1
-        !value_Tk6111   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "66a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee6111")) 1
-        !value_Tk7111   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "66a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee7111")) 1
-        !value_Tk8111   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "66a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee8111")) 1
-        !value_Tk9111   = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "66a8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaddee9111")) 1
-        
-        !testValuesList = [value_Tk1, value_Tk2, value_Tk3, value_Tk4, value_Tk5, value_Tk6, value_Tk7, value_Tk8, value_Tk9, value_Tk11, value_Tk21, value_Tk31, value_Tk41, value_Tk51, value_Tk61, value_Tk71, value_Tk81, value_Tk91, value_Tk111, value_Tk211, value_Tk311, value_Tk411, value_Tk511, value_Tk611, value_Tk711, value_Tk811, value_Tk911, value_Tk1111, value_Tk2111, value_Tk3111, value_Tk4111, value_Tk5111, value_Tk6111, value_Tk7111, value_Tk8111, value_Tk9111]
-
-        !testValues =  [ foldl (<>) (LedgerAda.lovelaceValueOf 0) (P.take i testValuesList) | i <- [0..36] ]
-       
-        testCases :: LedgerValue.Value -> P.IO ()
-        testCases = do
-            evaluateCase
-
-    in
-        mapM_ testCases testValues
 
 ---------------------------------------------------
 
@@ -507,7 +999,7 @@ evaluateScriptMint p datas =
         exBudget :: LedgerApiV2.ExBudget
         exBudget = LedgerApiV2.ExBudget 10000000000 14000000
 
-        !pv = LedgerProtocolVersionsV1.vasilPV 
+        !pv = LedgerProtocolVersionsV1.vasilPV
         !scriptMintingPolicyV2 = getScriptMintingPolicy p
         !scriptShortBsV2 = getScriptShortBs scriptMintingPolicyV2
         !(log, e) = LedgerApiV2.evaluateScriptRestricting pv LedgerApiV2.Verbose LedgerEvaluationContextV2.evalCtxForTesting exBudget scriptShortBsV2 datas
@@ -517,12 +1009,162 @@ evaluateScriptMint p datas =
 
 ---------------------------------------------------
 
-evaluateCase :: LedgerValue.Value -> P.IO ()
-evaluateCase v = 
+
+removeElements :: Integer -> [LedgerApiV2.Value] -> [LedgerApiV2.Value]
+removeElements _ [] = []
+removeElements s (x:xs)
+    |s>0 = x : removeElements (s-1) xs
+    |otherwise = xs
+
+createControlValue :: Integer -> [LedgerApiV2.Value] -> LedgerApiV2.Value
+createControlValue _ [] = LedgerAda.lovelaceValueOf 0
+createControlValue factIndex' list' =
+    let
+        !index = ((factIndex' - 1) `divide` 6) + 1
+        !value = list'!!(index-1)
+    in
+        value <> createControlValue (factIndex' - ((index-1)*6)) (removeElements (index-1) list')
+
+createControlValueWithADA :: Integer -> [LedgerApiV2.Value] -> LedgerApiV2.Value -> [LedgerApiV2.Value]
+createControlValueWithADA factIndex list valueADA =
+    let
+        createControlValue' = createControlValue factIndex list
+    in
+        [createControlValue' <> valueADA, valueADA <> createControlValue']
+
+{-# INLINABLE checkCases #-}
+checkCases :: (LedgerApiV2.Value -> LedgerApiV2.Value -> Bool) -> LedgerApiV2.Value -> [LedgerApiV2.Value] -> LedgerApiV2.Value -> Bool
+checkCases valueEqualsValue value list valueADA =
+    let
+        cases = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+    in
+        all (valueEqualsValue value) (concat [ createControlValueWithADA i  list valueADA | i <- cases])
+
+---------------------------------------------------
+
+evaluateCaseInEqMethods :: LedgerValue.Value -> P.IO ()
+evaluateCaseInEqMethods v =
+    let 
+        caseValue = length $ LedgerValue.flattenValue v
+
+        !value1 = v
+        -- value2: a new currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value3: existing currency symbol (in value2) and same name
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value1) and a new name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 0
+        -- value for ADA
+        !valueADA = LedgerAda.lovelaceValueOf 433
+
+        -- Output
+        !value_Real = value1 <> value2 <> value3 <> value4 <> valueADA
+
+        -- For testing the operators in all possible combinations of mixing the values
+        -- all of them are the same, but creates in dofferent order
+        -- only operators that can handle des-normalized values van pass this tests 
+
+        !list = [value1, value2, value3, value4]
+
+        !testEqualitiesUnsafe = checkCases normalizedValueEqualsNormalizedValue value_Real list valueADA
+        !testEqualities1 = checkCases valueEqualsValue1 value_Real list valueADA
+        !testEqualities1'Sorted = checkCases valueEqualsValue1'Sorted value_Real list valueADA
+        !testEqualities2 = checkCases valueEqualsValue2 value_Real list valueADA
+        !testEqualities3 = checkCases valueEqualsValue3 value_Real list valueADA
+        !testEqualities3'Sorted = checkCases valueEqualsValue3'Sorted value_Real list valueADA
+        !testEqualities4 = checkCases valueEqualsValue4 value_Real list valueADA
+        !testEqualities4'Sorted = checkCases valueEqualsValue4'Sorted value_Real list valueADA
+        !testEqualities4'SmartSorted = checkCases valueEqualsValue4'SmartSorted value_Real list valueADA
+        !testEqualities5 = checkCases valueEqualsValue5 value_Real list valueADA
+        !testEqualities6 = checkCases valueEqualsValue6 value_Real list valueADA
+        !testEqualities7 = checkCases valueEqualsValue7 value_Real list valueADA
+
+        --------------------------------
+
+    in do
+
+        -- For Printing the results of eq methods
+
+        P.putStrLn "-----"
+
+        P.putStrLn $ "Test Eq: " ++ P.show caseValue
+
+        if testEqualitiesUnsafe then
+            P.putStrLn "Method Unsafe. OK"
+        else
+            P.putStrLn "Method Unsafe. Failed"
+
+        if testEqualities1 then
+            P.putStrLn "Method 1. OK"
+        else
+            P.putStrLn "Method 1. Failed"
+
+        if testEqualities1'Sorted then
+            P.putStrLn "Method 1'Sorted. OK"
+        else
+            P.putStrLn "Method 1'Sorted. Failed"
+
+        if testEqualities2 then
+            P.putStrLn "Method 2. OK"
+        else
+            P.putStrLn "Method 2. Failed"
+
+        if testEqualities3 then
+            P.putStrLn "Method 3. OK"
+        else
+            P.putStrLn "Method 3. Failed"
+
+        if testEqualities3'Sorted then
+            P.putStrLn "Method 3'Sorted. OK"
+        else
+            P.putStrLn "Method 3'Sorted. Failed"
+
+        if testEqualities4 then
+            P.putStrLn "Method 4. OK"
+        else
+            P.putStrLn "Method 4. Failed"
+            
+        if testEqualities4'Sorted then
+            P.putStrLn "Method 4'Sorted. OK"
+        else
+            P.putStrLn "Method 4'Sorted. Failed"
+
+        if testEqualities4'SmartSorted then
+            P.putStrLn "Method 4'SmartSorted. OK"
+        else
+            P.putStrLn "Method 4'SmartSorted. Failed"
+
+        if testEqualities5 then
+            P.putStrLn "Method 5. OK"
+        else
+            P.putStrLn "Method 5. Failed"
+
+        if testEqualities6 then
+            P.putStrLn "Method 6. OK"
+        else
+            P.putStrLn "Method 6. Failed"
+
+        if testEqualities7 then
+            P.putStrLn "Method 7. OK"
+        else
+            P.putStrLn "Method 7. Failed"
+
+---------------------------------------------------
+
+evaluateCaseInMintingPolicy :: LedgerValue.Value -> P.IO ()
+evaluateCaseInMintingPolicy v =
     let
         !curSymbol1 = curSymbol policy1
+        !curSymbol1'Sorted = curSymbol policy1'Sorted
         !curSymbol2 = curSymbol policy2
         !curSymbol3 = curSymbol policy3
+        !curSymbol3'Sorted = curSymbol policy3'Sorted
+        !curSymbol4 = curSymbol policy4
+        !curSymbol4'Sorted = curSymbol policy4'Sorted
+        !curSymbol4'SmartSorted = curSymbol policy4'SmartSorted
+        !curSymbol5 = curSymbol policy5
+        !curSymbol6 = curSymbol policy6
+        !curSymbol7 = curSymbol policy7
 
         exampleTxOutRef :: LedgerApiV2.TxOutRef
         exampleTxOutRef = LedgerApiV2.TxOutRef {
@@ -535,136 +1177,151 @@ evaluateCase v =
 
         caseValue = length $ LedgerValue.flattenValue v
 
-        !value_Tk1     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "4aa8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff33")) 1
-        !value_Tk2     = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "5aa8df2a10e8530338279e41a1a40dc73f83e468b710c3b64082f759", LedgerApiV2.TokenName "aaff44")) 100
-        !value_ADA = LedgerAda.lovelaceValueOf 500
+        !value1 = v
+        -- value2: a new currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value3: existing currency symbol (in value2) and same name
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value1) and a new name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+        -- value for ADA
+        !valueADA = LedgerAda.lovelaceValueOf 433
 
-        value1 = v <> value_Tk1
-        value2 = LedgerAda.lovelaceValueOf 500
-        value3 = value_Tk1 <> value_Tk2  <> value_ADA
+        -- Output
+        !value_Real = value1 <> value2 <> value3 <> value4 <> valueADA
 
-        value1' = value_Tk1 <> v
-        value2' = LedgerAda.lovelaceValueOf 500 
-        value3' = value_ADA <> value_Tk2 <> value_Tk1 
-        
-        -- !value4 =  value_Tk1 <> value_Tk2  <> value_ADA
+        --------------------------------
 
-        !pool1 = T.examplePoolDatum
-        !(T.PoolDatum pool1Typo) = pool1
-        !pool2 = T.PoolDatum $ Helpers.mkUpdated_PoolDatum_With_Terminated pool1Typo 
-        !pool3 = T.PoolDatum $ Helpers.mkUpdated_PoolDatum_With_ClosedAt pool1Typo 0 
- 
         mockInput1 :: LedgerApiV2.TxInInfo
         mockInput1 =
             LedgerApiV2.TxInInfo
                 exampleTxOutRef
                 (LedgerApiV2.TxOut
-                    exampleAddress -- txOutAddress :: Address	 
-                    value1 -- txOutValue :: Value	 
-                    --(LedgerApiV2.OutputDatum $ LedgerApiV2.Datum $ PlutusTx.toBuiltinData ()) -- txOutDatum :: OutputDatum	
-                    (LedgerApiV2.OutputDatum $ LedgerApiV2.Datum $ PlutusTx.toBuiltinData pool1)
-                    DataMaybe.Nothing -- txOutReferenceScript :: Maybe ScriptHash
+                    exampleAddress
+                    value1
+                    LedgerApiV2.NoOutputDatum
+                    DataMaybe.Nothing
                 )
-
-        mockInput2 :: LedgerApiV2.TxInInfo
-        mockInput2 =
-            LedgerApiV2.TxInInfo
-                exampleTxOutRef
-                (LedgerApiV2.TxOut
-                    exampleAddress -- txOutAddress :: Address	 
-                    value2 -- txOutValue :: Value	 
-                    -- (LedgerApiV2.OutputDatum $ LedgerApiV2.Datum $ PlutusTx.toBuiltinData ()) -- txOutDatum :: OutputDatum	
-                    (LedgerApiV2.OutputDatum $ LedgerApiV2.Datum $ PlutusTx.toBuiltinData pool2)
-                    DataMaybe.Nothing -- txOutReferenceScript :: Maybe ScriptHash
-                )        
-
-        mockInput3 :: LedgerApiV2.TxInInfo
-        mockInput3 =
-            LedgerApiV2.TxInInfo
-                exampleTxOutRef
-                (LedgerApiV2.TxOut
-                    exampleAddress -- txOutAddress :: Address	 
-                    value3 -- txOutValue :: Value	 
-                    -- (LedgerApiV2.OutputDatum $ LedgerApiV2.Datum $ PlutusTx.toBuiltinData ()) -- txOutDatum :: OutputDatum	
-                    (LedgerApiV2.OutputDatum $ LedgerApiV2.Datum $ PlutusTx.toBuiltinData pool3)
-                    DataMaybe.Nothing -- txOutReferenceScript :: Maybe ScriptHash
-                )    
 
         mockOutput1 :: LedgerApiV2.TxOut
         mockOutput1 =
             LedgerApiV2.TxOut
-                exampleAddress -- txOutAddress :: Address	 
-                value1' -- txOutValue :: Value	 
-                --(LedgerApiV2.OutputDatum $ LedgerApiV2.Datum $ PlutusTx.toBuiltinData ()) -- txOutDatum :: OutputDatum
-                (LedgerApiV2.OutputDatum $ LedgerApiV2.Datum $ PlutusTx.toBuiltinData pool1)	
-                DataMaybe.Nothing -- txOutReferenceScript :: Maybe ScriptHash
-                
-        mockOutput2 :: LedgerApiV2.TxOut
-        mockOutput2 =
-            LedgerApiV2.TxOut
-                exampleAddress -- txOutAddress :: Address	 
-                value2' -- txOutValue :: Value	 
-                -- (LedgerApiV2.OutputDatum $ LedgerApiV2.Datum $ PlutusTx.toBuiltinData ()) -- txOutDatum :: OutputDatum
-                (LedgerApiV2.OutputDatum $ LedgerApiV2.Datum $ PlutusTx.toBuiltinData pool2)
-                DataMaybe.Nothing -- txOutReferenceScript :: Maybe ScriptHash
-
-        mockOutput3 :: LedgerApiV2.TxOut
-        mockOutput3 =
-            LedgerApiV2.TxOut
-                exampleAddress -- txOutAddress :: Address	 
-                value3' -- txOutValue :: Value	 
-                -- (LedgerApiV2.OutputDatum $ LedgerApiV2.Datum $ PlutusTx.toBuiltinData ()) -- txOutDatum :: OutputDatum
-                (LedgerApiV2.OutputDatum $ LedgerApiV2.Datum $ PlutusTx.toBuiltinData pool3)
-                DataMaybe.Nothing -- txOutReferenceScript :: Maybe ScriptHash
+                exampleAddress
+                value_Real
+                LedgerApiV2.NoOutputDatum
+                DataMaybe.Nothing
 
         --------------------------------
 
         redeemer_For_Mint = LedgerApiV2.Redeemer $ PlutusTx.toBuiltinData ()
 
         mockTxInfoInputs :: [LedgerApiV2.TxInInfo]
-        mockTxInfoInputs = [ mockInput2, mockInput1, mockInput3 ]
+        mockTxInfoInputs = [ mockInput1 ]
 
         mockTxInfoOutputs :: [LedgerApiV2.TxOut]
-        mockTxInfoOutputs = [ mockOutput3, mockOutput2, mockOutput1 ]
+        mockTxInfoOutputs = [ mockOutput1 ]
 
         mockTxInfoMint :: LedgerValue.Value
         mockTxInfoMint = LedgerAda.lovelaceValueOf 0
 
-        mockScriptPurposeMint1 :: LedgerApiV2.ScriptPurpose    
+        mockScriptPurposeMint1 :: LedgerApiV2.ScriptPurpose
         mockScriptPurposeMint1 = LedgerApiV2.Minting curSymbol1
 
-        mockScriptPurposeMint2 :: LedgerApiV2.ScriptPurpose    
+        mockScriptPurposeMint1'Sorted :: LedgerApiV2.ScriptPurpose
+        mockScriptPurposeMint1'Sorted = LedgerApiV2.Minting curSymbol1'Sorted
+
+        mockScriptPurposeMint2 :: LedgerApiV2.ScriptPurpose
         mockScriptPurposeMint2 = LedgerApiV2.Minting curSymbol2
 
-        mockScriptPurposeMint3 :: LedgerApiV2.ScriptPurpose    
+        mockScriptPurposeMint3 :: LedgerApiV2.ScriptPurpose
         mockScriptPurposeMint3 = LedgerApiV2.Minting curSymbol3
+
+        mockScriptPurposeMint3'Sorted :: LedgerApiV2.ScriptPurpose
+        mockScriptPurposeMint3'Sorted = LedgerApiV2.Minting curSymbol3'Sorted
+
+        mockScriptPurposeMint4 :: LedgerApiV2.ScriptPurpose
+        mockScriptPurposeMint4 = LedgerApiV2.Minting curSymbol4
+
+        mockScriptPurposeMint4'Sorted :: LedgerApiV2.ScriptPurpose
+        mockScriptPurposeMint4'Sorted = LedgerApiV2.Minting curSymbol4'Sorted
+
+        mockScriptPurposeMint4'SmartSorted :: LedgerApiV2.ScriptPurpose
+        mockScriptPurposeMint4'SmartSorted = LedgerApiV2.Minting curSymbol4'SmartSorted
+
+        mockScriptPurposeMint5 :: LedgerApiV2.ScriptPurpose
+        mockScriptPurposeMint5 = LedgerApiV2.Minting curSymbol5
+
+        mockScriptPurposeMint6 :: LedgerApiV2.ScriptPurpose
+        mockScriptPurposeMint6 = LedgerApiV2.Minting curSymbol6
+
+        mockScriptPurposeMint7 :: LedgerApiV2.ScriptPurpose
+        mockScriptPurposeMint7 = LedgerApiV2.Minting curSymbol7
 
         mockRedeemerMint1 :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
         mockRedeemerMint1 = (mockScriptPurposeMint1, redeemer_For_Mint)
 
+        mockRedeemerMint1'Sorted :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
+        mockRedeemerMint1'Sorted = (mockScriptPurposeMint1'Sorted, redeemer_For_Mint)
+
         mockRedeemerMint2 :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
         mockRedeemerMint2 = (mockScriptPurposeMint2, redeemer_For_Mint)
+
+        mockRedeemerMint3'Sorted :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
+        mockRedeemerMint3'Sorted = (mockScriptPurposeMint3'Sorted, redeemer_For_Mint)
 
         mockRedeemerMint3 :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
         mockRedeemerMint3 = (mockScriptPurposeMint3, redeemer_For_Mint)
 
+        mockRedeemerMint4 :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
+        mockRedeemerMint4 = (mockScriptPurposeMint4, redeemer_For_Mint)
+
+        mockRedeemerMint4'Sorted :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
+        mockRedeemerMint4'Sorted = (mockScriptPurposeMint4'Sorted, redeemer_For_Mint)
+
+        mockRedeemerMint4'SmartSorted :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
+        mockRedeemerMint4'SmartSorted = (mockScriptPurposeMint4'SmartSorted, redeemer_For_Mint)
+
+        mockRedeemerMint5 :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
+        mockRedeemerMint5 = (mockScriptPurposeMint5, redeemer_For_Mint)
+
+        mockRedeemerMint6 :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
+        mockRedeemerMint6 = (mockScriptPurposeMint6, redeemer_For_Mint)
+
+        mockRedeemerMint7 :: (LedgerApiV2.ScriptPurpose, LedgerApiV2.Redeemer)
+        mockRedeemerMint7 = (mockScriptPurposeMint7, redeemer_For_Mint)
+
         mockTxInfoRedeemers1 :: LedgerApiV2.Map LedgerApiV2.ScriptPurpose LedgerApiV2.Redeemer
-        mockTxInfoRedeemers1 = LedgerApiV2.fromList
-            [
-                mockRedeemerMint1
-            ]
+        mockTxInfoRedeemers1 = LedgerApiV2.fromList [ mockRedeemerMint1 ]
+
+        mockTxInfoRedeemers1'Sorted :: LedgerApiV2.Map LedgerApiV2.ScriptPurpose LedgerApiV2.Redeemer
+        mockTxInfoRedeemers1'Sorted = LedgerApiV2.fromList [ mockRedeemerMint1'Sorted ]
 
         mockTxInfoRedeemers2 :: LedgerApiV2.Map LedgerApiV2.ScriptPurpose LedgerApiV2.Redeemer
-        mockTxInfoRedeemers2 = LedgerApiV2.fromList
-            [
-                mockRedeemerMint2
-            ]
+        mockTxInfoRedeemers2 = LedgerApiV2.fromList [ mockRedeemerMint2 ]
 
         mockTxInfoRedeemers3 :: LedgerApiV2.Map LedgerApiV2.ScriptPurpose LedgerApiV2.Redeemer
-        mockTxInfoRedeemers3 = LedgerApiV2.fromList
-            [
-                mockRedeemerMint3
-            ]
+        mockTxInfoRedeemers3 = LedgerApiV2.fromList [ mockRedeemerMint3 ]
+
+        mockTxInfoRedeemers3'Sorted  :: LedgerApiV2.Map LedgerApiV2.ScriptPurpose LedgerApiV2.Redeemer
+        mockTxInfoRedeemers3'Sorted  = LedgerApiV2.fromList [ mockRedeemerMint3'Sorted  ]
+
+        mockTxInfoRedeemers4 :: LedgerApiV2.Map LedgerApiV2.ScriptPurpose LedgerApiV2.Redeemer
+        mockTxInfoRedeemers4 = LedgerApiV2.fromList [ mockRedeemerMint4 ]
+
+        mockTxInfoRedeemers4'Sorted  :: LedgerApiV2.Map LedgerApiV2.ScriptPurpose LedgerApiV2.Redeemer
+        mockTxInfoRedeemers4'Sorted  = LedgerApiV2.fromList [ mockRedeemerMint4'Sorted  ]
+
+        mockTxInfoRedeemers4'SmartSorted  :: LedgerApiV2.Map LedgerApiV2.ScriptPurpose LedgerApiV2.Redeemer
+        mockTxInfoRedeemers4'SmartSorted  = LedgerApiV2.fromList [ mockRedeemerMint4'SmartSorted ]
+
+        mockTxInfoRedeemers5 :: LedgerApiV2.Map LedgerApiV2.ScriptPurpose LedgerApiV2.Redeemer
+        mockTxInfoRedeemers5 = LedgerApiV2.fromList [ mockRedeemerMint5 ]
+
+        mockTxInfoRedeemers6 :: LedgerApiV2.Map LedgerApiV2.ScriptPurpose LedgerApiV2.Redeemer
+        mockTxInfoRedeemers6 = LedgerApiV2.fromList [ mockRedeemerMint6 ]
+
+        mockTxInfoRedeemers7 :: LedgerApiV2.Map LedgerApiV2.ScriptPurpose LedgerApiV2.Redeemer
+        mockTxInfoRedeemers7 = LedgerApiV2.fromList [ mockRedeemerMint7 ]
 
         !now = LedgerApiV2.POSIXTime 1000000
         !intervalOffset1 = 1000
@@ -675,133 +1332,398 @@ evaluateCase v =
         mockCtx1 =
             LedgerApiV2.ScriptContext
                 (
-                LedgerApiV2.TxInfo
-                    mockTxInfoInputs -- txInfoInputs :: [TxInInfo]	
-                    [ ] -- txInfoReferenceInputs :: [TxInInfo]
-                    mockTxInfoOutputs -- txInfoOutputs :: [TxOut]	
-                    (LedgerAda.lovelaceValueOf 50000) -- txInfoFee :: Value	
-                    mockTxInfoMint -- txInfoMint :: Value	
-                    [] -- txInfoDCert :: [DCert]	
-                    (LedgerApiV2.fromList []) -- txInfoWdrl :: Map StakingCredential Integer	
-                    validityRange -- txInfoValidRange :: POSIXTimeRange	
-                    []  -- txInfoSignatories :: [PubKeyHash]	
-                    mockTxInfoRedeemers1 -- txInfoRedeemers :: Map ScriptPurpose Redeemer	
-                    (LedgerApiV2.fromList [])  -- txInfoData :: Map DatumHash Datum	
-                    (LedgerApiV2.TxId "555") -- txInfoId :: TxId 
+                    LedgerApiV2.TxInfo
+                    mockTxInfoInputs
+                    [ ]
+                    mockTxInfoOutputs
+                    (LedgerAda.lovelaceValueOf 50000)
+                    mockTxInfoMint
+                    []
+                    (LedgerApiV2.fromList [])
+                    validityRange
+                    []
+                    mockTxInfoRedeemers1
+                    (LedgerApiV2.fromList [])
+                    (LedgerApiV2.TxId "555")
                 )
-                mockScriptPurposeMint1 -- scriptContextPurpose :: ScriptPurpose
+                mockScriptPurposeMint1
+
+        mockCtx1'Sorted :: LedgerApiV2.ScriptContext
+        mockCtx1'Sorted = LedgerApiV2.ScriptContext
+                (
+                    LedgerApiV2.TxInfo
+                    mockTxInfoInputs
+                    [ ]
+                    mockTxInfoOutputs
+                    (LedgerAda.lovelaceValueOf 50000)
+                    mockTxInfoMint
+                    []
+                    (LedgerApiV2.fromList [])
+                    validityRange
+                    []
+                    mockTxInfoRedeemers1'Sorted
+                    (LedgerApiV2.fromList [])
+                    (LedgerApiV2.TxId "555")
+                )
+                mockScriptPurposeMint1'Sorted
 
         mockCtx2 :: LedgerApiV2.ScriptContext
         mockCtx2 =
             LedgerApiV2.ScriptContext
                 (
-                LedgerApiV2.TxInfo
-                    mockTxInfoInputs -- txInfoInputs :: [TxInInfo]	
-                    [ ] -- txInfoReferenceInputs :: [TxInInfo]
-                    mockTxInfoOutputs -- txInfoOutputs :: [TxOut]	
-                    (LedgerAda.lovelaceValueOf 50000) -- txInfoFee :: Value	
-                    mockTxInfoMint -- txInfoMint :: Value	
-                    [] -- txInfoDCert :: [DCert]	
-                    (LedgerApiV2.fromList []) -- txInfoWdrl :: Map StakingCredential Integer	
-                    validityRange -- txInfoValidRange :: POSIXTimeRange	
-                    []  -- txInfoSignatories :: [PubKeyHash]	
-                    mockTxInfoRedeemers2 -- txInfoRedeemers :: Map ScriptPurpose Redeemer	
-                    (LedgerApiV2.fromList [])  -- txInfoData :: Map DatumHash Datum	
-                    (LedgerApiV2.TxId "555") -- txInfoId :: TxId 
+                    LedgerApiV2.TxInfo
+                    mockTxInfoInputs
+                    [ ]
+                    mockTxInfoOutputs
+                    (LedgerAda.lovelaceValueOf 50000)
+                    mockTxInfoMint
+                    []
+                    (LedgerApiV2.fromList [])
+                    validityRange
+                    []
+                    mockTxInfoRedeemers2
+                    (LedgerApiV2.fromList [])
+                    (LedgerApiV2.TxId "555")
                 )
-                mockScriptPurposeMint2 -- scriptContextPurpose :: ScriptPurpose
+                mockScriptPurposeMint2
 
         mockCtx3 :: LedgerApiV2.ScriptContext
         mockCtx3 =
             LedgerApiV2.ScriptContext
                 (
-                LedgerApiV2.TxInfo
-                    mockTxInfoInputs -- txInfoInputs :: [TxInInfo]	
-                    [ ] -- txInfoReferenceInputs :: [TxInInfo]
-                    mockTxInfoOutputs -- txInfoOutputs :: [TxOut]	
-                    (LedgerAda.lovelaceValueOf 50000) -- txInfoFee :: Value	
-                    mockTxInfoMint -- txInfoMint :: Value	
-                    [] -- txInfoDCert :: [DCert]	
-                    (LedgerApiV2.fromList []) -- txInfoWdrl :: Map StakingCredential Integer	
-                    validityRange -- txInfoValidRange :: POSIXTimeRange	
-                    []  -- txInfoSignatories :: [PubKeyHash]	
-                    mockTxInfoRedeemers3 -- txInfoRedeemers :: Map ScriptPurpose Redeemer	
-                    (LedgerApiV2.fromList [])  -- txInfoData :: Map DatumHash Datum	
-                    (LedgerApiV2.TxId "555") -- txInfoId :: TxId 
+                    LedgerApiV2.TxInfo
+                    mockTxInfoInputs
+                    [ ]
+                    mockTxInfoOutputs
+                    (LedgerAda.lovelaceValueOf 50000)
+                    mockTxInfoMint
+                    []
+                    (LedgerApiV2.fromList [])
+                    validityRange
+                    []
+                    mockTxInfoRedeemers3
+                    (LedgerApiV2.fromList [])
+                    (LedgerApiV2.TxId "555")
                 )
-                mockScriptPurposeMint3 -- scriptContextPurpose :: ScriptPurpose
+                mockScriptPurposeMint3
+        
+        mockCtx3'Sorted :: LedgerApiV2.ScriptContext
+        mockCtx3'Sorted =
+            LedgerApiV2.ScriptContext
+                (
+                    LedgerApiV2.TxInfo
+                    mockTxInfoInputs
+                    [ ]
+                    mockTxInfoOutputs
+                    (LedgerAda.lovelaceValueOf 50000)
+                    mockTxInfoMint
+                    []
+                    (LedgerApiV2.fromList [])
+                    validityRange
+                    []
+                    mockTxInfoRedeemers3'Sorted
+                    (LedgerApiV2.fromList [])
+                    (LedgerApiV2.TxId "555")
+                )
+                mockScriptPurposeMint3'Sorted
 
-        !datas1 = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx1]
-        !datas2 = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx2]
-        !datas3 = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx3]
+        mockCtx4 :: LedgerApiV2.ScriptContext
+        mockCtx4 =
+            LedgerApiV2.ScriptContext
+                (
+                    LedgerApiV2.TxInfo
+                    mockTxInfoInputs
+                    [ ]
+                    mockTxInfoOutputs
+                    (LedgerAda.lovelaceValueOf 50000)
+                    mockTxInfoMint
+                    []
+                    (LedgerApiV2.fromList [])
+                    validityRange
+                    []
+                    mockTxInfoRedeemers4
+                    (LedgerApiV2.fromList [])
+                    (LedgerApiV2.TxId "555")
+                )
+                mockScriptPurposeMint4
+
+        mockCtx4'Sorted :: LedgerApiV2.ScriptContext
+        mockCtx4'Sorted =
+            LedgerApiV2.ScriptContext
+                (
+                    LedgerApiV2.TxInfo
+                    mockTxInfoInputs
+                    [ ]
+                    mockTxInfoOutputs
+                    (LedgerAda.lovelaceValueOf 50000)
+                    mockTxInfoMint
+                    []
+                    (LedgerApiV2.fromList [])
+                    validityRange
+                    []
+                    mockTxInfoRedeemers4'Sorted
+                    (LedgerApiV2.fromList [])
+                    (LedgerApiV2.TxId "555")
+                )
+                mockScriptPurposeMint4'Sorted
+
+        mockCtx4'SmartSorted :: LedgerApiV2.ScriptContext
+        mockCtx4'SmartSorted =
+            LedgerApiV2.ScriptContext
+                (
+                    LedgerApiV2.TxInfo
+                    mockTxInfoInputs
+                    [ ]
+                    mockTxInfoOutputs
+                    (LedgerAda.lovelaceValueOf 50000)
+                    mockTxInfoMint
+                    []
+                    (LedgerApiV2.fromList [])
+                    validityRange
+                    []
+                    mockTxInfoRedeemers4'SmartSorted
+                    (LedgerApiV2.fromList [])
+                    (LedgerApiV2.TxId "555")
+                )
+                mockScriptPurposeMint4'SmartSorted
+
+        mockCtx5 :: LedgerApiV2.ScriptContext
+        mockCtx5 =
+            LedgerApiV2.ScriptContext
+                (
+                    LedgerApiV2.TxInfo
+                    mockTxInfoInputs
+                    [ ]
+                    mockTxInfoOutputs
+                    (LedgerAda.lovelaceValueOf 50000)
+                    mockTxInfoMint
+                    []
+                    (LedgerApiV2.fromList [])
+                    validityRange
+                    []
+                    mockTxInfoRedeemers5
+                    (LedgerApiV2.fromList [])
+                    (LedgerApiV2.TxId "555")
+                )
+                mockScriptPurposeMint5
+
+        mockCtx6 :: LedgerApiV2.ScriptContext
+        mockCtx6 =
+            LedgerApiV2.ScriptContext
+                (
+                    LedgerApiV2.TxInfo
+                    mockTxInfoInputs
+                    [ ]
+                    mockTxInfoOutputs
+                    (LedgerAda.lovelaceValueOf 50000)
+                    mockTxInfoMint
+                    []
+                    (LedgerApiV2.fromList [])
+                    validityRange
+                    []
+                    mockTxInfoRedeemers6
+                    (LedgerApiV2.fromList [])
+                    (LedgerApiV2.TxId "555")
+                )
+                mockScriptPurposeMint6
+
+        mockCtx7 :: LedgerApiV2.ScriptContext
+        mockCtx7 =
+            LedgerApiV2.ScriptContext
+                (
+                    LedgerApiV2.TxInfo
+                    mockTxInfoInputs
+                    [ ]
+                    mockTxInfoOutputs
+                    (LedgerAda.lovelaceValueOf 50000)
+                    mockTxInfoMint
+                    []
+                    (LedgerApiV2.fromList [])
+                    validityRange
+                    []
+                    mockTxInfoRedeemers7
+                    (LedgerApiV2.fromList [])
+                    (LedgerApiV2.TxId "555")
+                )
+                mockScriptPurposeMint7
+
+        !datas1  = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx1]
+        !datas1'Sorted = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx1'Sorted]
+        !datas2  = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx2]
+        !datas3  = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx3]
+        !datas3'Sorted  = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx3'Sorted]
+        !datas4  = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx4]
+        !datas4'Sorted  = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx4'Sorted]
+        !datas4'SmartSorted  = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx4'SmartSorted]
+        !datas5  = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx5]
+        !datas6  = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx6]
+        !datas7  = [ LedgerApiV2.toData redeemer_For_Mint, LedgerApiV2.toData mockCtx7]
+
+        --------------------------------
 
         (e1, log1, size1) = evaluateScriptMint policy1 datas1
+        (e1'Sorted, log1'Sorted, size1'Sorted) = evaluateScriptMint policy1'Sorted datas1'Sorted
         (e2, log2, size2) = evaluateScriptMint policy2 datas2
         (e3, log3, size3) = evaluateScriptMint policy3 datas3
-        (e4, log4, size4) = evaluateScriptMint policy1_fromPlutonomy datas1
-        (e5, log5, size5) = evaluateScriptMint policy2_fromPlutonomy datas2
-        (e6, log6, size6) = evaluateScriptMint policy3_fromPlutonomy datas3
+        (e3'Sorted, log3'Sorted, size3'Sorted) = evaluateScriptMint policy3'Sorted datas3'Sorted
+        (e4, log4, size4) = evaluateScriptMint policy4 datas4
+        (e4'Sorted, log4'Sorted, size4'Sorted) = evaluateScriptMint policy4'Sorted datas4'Sorted
+        (e4'SmartSorted, log4'SmartSorted, size4'SmartSorted) = evaluateScriptMint policy4'SmartSorted datas4'SmartSorted
+        (e5, log5, size5) = evaluateScriptMint policy5 datas5
+        (e6, log6, size6) = evaluateScriptMint policy6 datas6
+        (e7, log7, size7) = evaluateScriptMint policy7 datas7
+
+        (e1_plutonomy, log1_plutonomy, size1_plutonomy) = evaluateScriptMint policy1_fromPlutonomy datas1
+        (e1'Sorted_plutonomy, log1'Sorted_plutonomy, size1'Sorted_plutonomy) = evaluateScriptMint policy1'Sorted_fromPlutonomy datas1'Sorted
+        (e2_plutonomy, log2_plutonomy, size2_plutonomy) = evaluateScriptMint policy2_fromPlutonomy datas2
+        (e3_plutonomy, log3_plutonomy, size3_plutonomy) = evaluateScriptMint policy3_fromPlutonomy datas3
+        (e3'Sorted_plutonomy, log3'Sorted_plutonomy, size3'Sorted_plutonomy) = evaluateScriptMint policy3'Sorted_fromPlutonomy datas3'Sorted
+        (e4_plutonomy, log4_plutonomy, size4_plutonomy) = evaluateScriptMint policy4_fromPlutonomy datas4
+        (e4'Sorted_plutonomy, log4'Sorted_plutonomy, size4'Sorted_plutonomy) = evaluateScriptMint policy4'Sorted_fromPlutonomy datas4'Sorted
+        (e4'SmartSorted_plutonomy, log4'SmartSorted_plutonomy, size4'SmartSorted_plutonomy) = evaluateScriptMint policy4'SmartSorted_fromPlutonomy datas4
+        (e5_plutonomy, log5_plutonomy, size5_plutonomy) = evaluateScriptMint policy5_fromPlutonomy datas5
+        (e6_plutonomy, log6_plutonomy, size6_plutonomy) = evaluateScriptMint policy6_fromPlutonomy datas5
+        (e7_plutonomy, log7_plutonomy, size7_plutonomy) = evaluateScriptMint policy7_fromPlutonomy datas5
+
+        --------------------------------
 
     in do
-        P.putStrLn "-----"
-        
-        -- P.putStrLn $ "Case: " ++ P.show caseValue 
-        -- case e1 of
-        --     Left evalErr -> do
-        --         P.putStrLn "With (==)"
-        --         P.putStrLn $ "Eval Error: " ++  P.show evalErr
-        --     Right exbudget -> do 
-        --         P.putStrLn "With (==)"
-        --         P.putStrLn $ "Ex Budget: " ++  P.show exbudget ++ " - Script size: " ++  P.show size1
-        -- P.putStrLn $ "Log: " ++  P.show log1
 
-        -- case e2 of
-        --     Left evalErr -> do
-        --         P.putStrLn "With valueEqualsValue"
-        --         P.putStrLn $ "Eval Error: " ++ P.show evalErr
-        --     Right exbudget -> do 
-        --         P.putStrLn "With valueEqualsValue"
-        --         P.putStrLn $ "Ex Budget: " ++  P.show exbudget ++ " - Script size: " ++  P.show size2
-        -- P.putStrLn $ "Log: " ++  P.show log2
-        
-        -- case e3 of
-        --     Left evalErr -> do
-        --         P.putStrLn "With unsafeValueEqualsValue"
-        --         P.putStrLn $ "Eval Error: " ++ P.show evalErr
-        --     Right exbudget -> do 
-        --         P.putStrLn "With unsafeValueEqualsValue"
-        --         P.putStrLn $ "Ex Budget: " ++  P.show exbudget ++ " - Script size: " ++  P.show size3
-        -- P.putStrLn $ "Log: " ++  P.show log3
+        -- Exporting as table in CSV:
 
-        -- P.putStrLn "-----"
-        
-        P.putStrLn $ "Case (with Plutonomy): " ++ P.show caseValue 
+        P.putStrLn "Case,Different Assets,Currency Symbols,Method,Mem,CPU,Size"
+
+        case e1 of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue1, " ++ "Eval Error, ," ++  P.show size1
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue1, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size1
+
+        case e1'Sorted of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue1'Sorted, " ++ "Eval Error, ," ++  P.show size1'Sorted
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue1'Sorted, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size1'Sorted
+
+        case e2 of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue2, " ++ "Eval Error, ," ++  P.show size2
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue2, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size2
+
+        case e3 of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue3, " ++ "Eval Error, ," ++  P.show size3
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue3, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size3
+
+        case e3'Sorted of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue3'Sorted, " ++ "Eval Error, ," ++  P.show size3'Sorted
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue3'Sorted, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size3'Sorted
+
         case e4 of
-            Left evalErr -> do
-                P.putStrLn "With (==)"
-                P.putStrLn $ "Eval Error: " ++ P.show evalErr
-            Right exbudget -> do 
-                P.putStrLn "With (==)"
-                P.putStrLn $ "Ex Budget: " ++  P.show exbudget ++ " - Script size: " ++  P.show size4
-        P.putStrLn $ "Log: " ++  P.show log4
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue4, " ++ "Eval Error, ," ++  P.show size4
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue4, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size4
+
+        case e4'Sorted of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue4'Sorted, " ++ "Eval Error, ," ++  P.show size4'Sorted
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue4'Sorted, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size4'Sorted
+
+        case e4'SmartSorted of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue4'SmartSorted, " ++ "Eval Error, ," ++  P.show size4'SmartSorted
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue4'SmartSorted, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size4'SmartSorted
 
         case e5 of
-            Left evalErr -> do
-                P.putStrLn "With valueEqualsValue"
-                P.putStrLn $ "Eval Error: " ++ P.show evalErr
-            Right exbudget -> do 
-                P.putStrLn "With valueEqualsValue"
-                P.putStrLn $ "Ex Budget: " ++  P.show exbudget ++ " - Script size: " ++  P.show size5
-        P.putStrLn $ "Log: " ++  P.show log5
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue5, " ++ "Eval Error, ," ++  P.show size5
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue5, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size5
 
         case e6 of
-            Left evalErr -> do
-                P.putStrLn "With unsafeValueEqualsValue"
-                P.putStrLn $ "Eval Error: " ++ P.show evalErr
-            Right exbudget -> do 
-                P.putStrLn "With unsafeValueEqualsValue"
-                P.putStrLn $ "Ex Budget: " ++  P.show exbudget ++ " - Script size: " ++  P.show size6
-        P.putStrLn $ "Log: " ++  P.show log6
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue6, " ++ "Eval Error, ," ++  P.show size6
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue6, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size6
+
+        case e7 of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue7, " ++ "Eval Error, ," ++  P.show size7
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue7, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size7
+
+        case e1_plutonomy of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue1, " ++ "Eval Error, ," ++  P.show size1_plutonomy
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue1, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size1_plutonomy
+
+        case e1'Sorted_plutonomy of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue1'Sorted, " ++ "Eval Error, ," ++  P.show size1'Sorted_plutonomy
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue1'Sorted, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size1'Sorted_plutonomy
+
+        case e2_plutonomy of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue2, " ++ "Eval Error, ," ++  P.show size2_plutonomy
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue2, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size2_plutonomy
+
+        case e3_plutonomy of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue3, " ++ "Eval Error, ," ++  P.show size3_plutonomy
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue3, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size3_plutonomy
+
+        case e3'Sorted_plutonomy of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue3'Sorted, " ++ "Eval Error, ," ++  P.show size3'Sorted_plutonomy
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue3'Sorted, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size3'Sorted_plutonomy
+
+        case e4_plutonomy of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue4, " ++ "Eval Error, ," ++  P.show size4_plutonomy
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue4, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size4_plutonomy
+
+        case e4'Sorted_plutonomy of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue4'Sorted, " ++ "Eval Error, ," ++  P.show size4'Sorted_plutonomy
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue4'Sorted, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size4'Sorted_plutonomy
+
+        case e4'SmartSorted_plutonomy of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue4'SmartSorted, " ++ "Eval Error, ," ++  P.show size4'SmartSorted_plutonomy
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue4'SmartSorted, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size4'SmartSorted_plutonomy
+
+        case e5_plutonomy of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue5, " ++ "Eval Error, ," ++  P.show size5_plutonomy
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue5, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size5_plutonomy
+
+        case e6_plutonomy of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue6, " ++ "Eval Error, ," ++  P.show size6_plutonomy
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue6, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size6_plutonomy
+
+        case e7_plutonomy of
+            Left _ -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue7, " ++ "Eval Error, ," ++  P.show size7_plutonomy
+            Right exbudget -> do
+                P.putStrLn $ P.show caseValue ++ " (Plutonomy)" ++ ", " ++ P.show caseValue ++ ", " ++ P.show ( (caseValue-1) `divide` 5 + 1) ++ ", valueEqualsValue7, " ++ P.show (LedgerApiV2.exBudgetMemory exbudget) ++ ", " ++ P.show (LedgerApiV2.exBudgetCPU exbudget) ++ ", " ++  P.show size7_plutonomy
 
 
 --------------------------------------------------------------------------------
