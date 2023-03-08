@@ -103,12 +103,12 @@ normalizeValue = LedgerApiV2.Value . TxAssocMap.fromList . sort' . filterRange (
 {-# INLINABLE flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros #-}
 flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros :: [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> Bool
 flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros [] [] = True
-flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros ((!cs1, !tn1, !amt1):(!xs1)) ((!cs2, !tn2, !amt2):(!xs2)) 
+flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros ((!cs1, !tn1, !amt1):(!xs1)) ((!cs2, !tn2, !amt2):(!xs2))
     | cs1 == cs2 && tn1 == tn2 && amt1 == amt2 = flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros xs1 xs2
-    | otherwise = 
+    | otherwise =
         let
             flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros' :: (LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer) -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.CurrencySymbol, LedgerApiV2.TokenName, Integer)] -> Bool
-            flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros' (!cs1', !tn1', !amt1') !xs1' !xs2' ((!cs2', !tn2', !amt2'):(!xs3')) 
+            flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros' (!cs1', !tn1', !amt1') !xs1' !xs2' ((!cs2', !tn2', !amt2'):(!xs3'))
                 | cs1' == cs2' && tn1' == tn2' && amt1' == amt2' = flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros xs1' (xs2'++xs3')
                 | otherwise = flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros' (cs1', tn1', amt1') xs1' ((cs2', tn2', amt2'):xs2') xs3'
             flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros' _ _ _ _ = False
@@ -120,26 +120,36 @@ flattenedValueWithoutZerosEqualsFlattenedValueWithoutZeros _ _ = False
 
 {-# INLINABLE listTNEqualsListTN #-}
 listTNEqualsListTN :: [(LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.TokenName, Integer)] -> Bool
+
 listTNEqualsListTN [] [] = True
-listTNEqualsListTN [] ((_, !am2):(!xs2)) 
-    | am2 == 0 =                    
-        listTNEqualsListTN [] xs2 
-    | otherwise = 
-        False
-listTNEqualsListTN ((!tn1, !am1):(!xs1)) ((!tn2, !am2):(!xs2)) 
-    | am1 == 0 =                    
-        listTNEqualsListTN xs1 ((tn2, am2):xs2) 
-    | tn1 == tn2 && am1 == am2 =    
+
+listTNEqualsListTN [] ((_, !am2):(!xs2)) =
+    am2 == 0 && listTNEqualsListTN [] xs2
+
+listTNEqualsListTN ((_, !am1):(!xs1)) [] =
+    am1 == 0 && listTNEqualsListTN xs1 []
+
+listTNEqualsListTN ((!tn1, !am1):(!xs1)) ((!tn2, !am2):(!xs2))
+    | am1 == 0 =
+        listTNEqualsListTN xs1 ((tn2, am2):xs2)
+
+    | am2 == 0 =
+        listTNEqualsListTN ((tn1, am1):xs1) xs2
+
+    | tn1 == tn2 && am1 == am2 =
         listTNEqualsListTN xs1 xs2
+
     | otherwise =
-        let 
+        let
             listTNEqualsListTN' :: (LedgerApiV2.TokenName, Integer) -> [(LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.TokenName, Integer)] -> Bool
-            listTNEqualsListTN' (!tn1', !am1') !xs1' !xs2' ((!tn2', !am2'):(!xs3')) 
+            listTNEqualsListTN' (!tn1', !am1') !xs1' !xs2' ((!tn2', !am2'):(!xs3'))
+                | am2' == 0                     = listTNEqualsListTN' (tn1', am1') xs1' xs2' xs3'
                 | tn1' == tn2' && am1' == am2'  = listTNEqualsListTN xs1' (xs2'++xs3')
                 | otherwise                     = listTNEqualsListTN' (tn1', am1') xs1' ((tn2', am2'):xs2') xs3'
             listTNEqualsListTN' _ _ _ _ = False
         in
             listTNEqualsListTN' (tn1, am1) xs1 [(tn2, am2)] xs2
+
 listTNEqualsListTN _ _ = False
 
 ---------------------------------------------------
@@ -147,17 +157,39 @@ listTNEqualsListTN _ _ = False
 {-# INLINABLE listCSEqualsListCS #-}
 listCSEqualsListCS :: [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
 listCSEqualsListCS [] [] = True
-listCSEqualsListCS ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2)) 
+
+listCSEqualsListCS ((_, !mp1):(!xs1)) [] =
+        let
+            !listTN1 = TxAssocMap.toList mp1
+        in
+            listTNEqualsListTN listTN1 [] && listCSEqualsListCS xs1 []
+
+listCSEqualsListCS [] ((_, !mp2):(!xs2)) =
+        let
+            !listTN2 = TxAssocMap.toList mp2
+        in
+            listTNEqualsListTN [] listTN2 && listCSEqualsListCS [] xs2
+
+listCSEqualsListCS ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2))
+
     | cs1 == cs2 =
         let
             !listTN1 = TxAssocMap.toList mp1
             !listTN2 = TxAssocMap.toList mp2
         in
             listTNEqualsListTN listTN1 listTN2 && listCSEqualsListCS xs1 xs2
+
     | otherwise =
-        let 
+        let
             listCSEqualsListCS' :: (LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer) -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
-            listCSEqualsListCS' (!cs1', !mp1') !xs1' !xs2' ((!cs2', !mp2'):xs3') = 
+
+            listCSEqualsListCS' (!_, !mp1') !xs1' !xs2' [] =
+                let
+                    !listTN1 = TxAssocMap.toList mp1'
+                in
+                    listTNEqualsListTN listTN1 [] && listCSEqualsListCS xs1' xs2'
+
+            listCSEqualsListCS' (!cs1', !mp1') !xs1' !xs2' ((!cs2', !mp2'):xs3') =
                 if cs1' == cs2' then
                     let
                         !listTN1 = TxAssocMap.toList mp1'
@@ -166,31 +198,60 @@ listCSEqualsListCS ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2))
                         listTNEqualsListTN listTN1 listTN2 && listCSEqualsListCS xs1' (xs2'++xs3')
                 else
                     listCSEqualsListCS' (cs1', mp1') xs1' ((cs2', mp2'):xs2') xs3'
+
             listCSEqualsListCS' _ _ _ _ = False
         in
             listCSEqualsListCS' (cs1, mp1) xs1 [(cs2, mp2)] xs2
+
 listCSEqualsListCS _ _ = False
 
 ---------------------------------------------------
 
-
 {-# INLINABLE listCSEqualsListCS'Sorted #-}
 listCSEqualsListCS'Sorted :: [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
 listCSEqualsListCS'Sorted [] [] = True
-listCSEqualsListCS'Sorted ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2)) 
+
+listCSEqualsListCS'Sorted ((_, !mp1):(!xs1)) [] =
+        let
+            sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
+            sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
+
+            !listTN1 = sortBy sort_TokenName (TxAssocMap.toList mp1)
+        in
+            listTNEqualsListTN listTN1 [] && listCSEqualsListCS'Sorted xs1 []
+
+listCSEqualsListCS'Sorted [] ((_, !mp2):(!xs2)) =
+        let
+            sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
+            sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
+
+            !listTN2 = sortBy sort_TokenName (TxAssocMap.toList mp2)
+        in
+            listTNEqualsListTN [] listTN2 && listCSEqualsListCS'Sorted [] xs2
+
+listCSEqualsListCS'Sorted ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2))
+
     | cs1 == cs2 =
         let
             sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
             sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
-            
+
             !listTN1 = sortBy sort_TokenName (TxAssocMap.toList mp1)
             !listTN2 = sortBy sort_TokenName (TxAssocMap.toList mp2)
         in
             listTNEqualsListTN listTN1 listTN2 && listCSEqualsListCS'Sorted xs1 xs2
+
     | otherwise =
-        let 
+        let
             listCSEqualsListCS'Sorted' :: (LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer) -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
-            listCSEqualsListCS'Sorted' (!cs1', !mp1') !xs1' !xs2' ((!cs2', !mp2'):xs3') = 
+
+            listCSEqualsListCS'Sorted' (!_, !mp1') !xs1' !xs2' [] =
+                let
+                    !listTN1 = TxAssocMap.toList mp1'
+                in
+                    listTNEqualsListTN listTN1 [] && listCSEqualsListCS'Sorted xs1' xs2'
+
+            listCSEqualsListCS'Sorted' (!cs1', !mp1') !xs1' !xs2' ((!cs2', !mp2'):xs3') =
                 if cs1' == cs2' then
                     let
                         sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
@@ -202,25 +263,59 @@ listCSEqualsListCS'Sorted ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2))
                         listTNEqualsListTN listTN1 listTN2 && listCSEqualsListCS'Sorted xs1' (xs2'++xs3')
                 else
                     listCSEqualsListCS'Sorted' (cs1', mp1') xs1' ((cs2', mp2'):xs2') xs3'
+
             listCSEqualsListCS'Sorted' _ _ _ _ = False
         in
             listCSEqualsListCS'Sorted' (cs1, mp1) xs1 [(cs2, mp2)] xs2
+
 listCSEqualsListCS'Sorted _ _ = False
 
-
 ---------------------------------------------------
-
 
 {-# INLINABLE listCSEqualsListCS'SmartSorted #-}
 listCSEqualsListCS'SmartSorted :: [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
 listCSEqualsListCS'SmartSorted [] [] = True
-listCSEqualsListCS'SmartSorted ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2)) 
+
+listCSEqualsListCS'SmartSorted ((_, !mp1):(!xs1)) [] =
+        let
+            !listTN1 = TxAssocMap.toList mp1
+
+            !listTN1' =
+                if length listTN1 > 3 then
+                    let
+                        sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
+                        sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
+                    in
+                        sortBy sort_TokenName listTN1
+                else
+                    listTN1
+        in
+            listTNEqualsListTN listTN1' [] && listCSEqualsListCS'SmartSorted xs1 []
+
+listCSEqualsListCS'SmartSorted [] ((_, !mp2):(!xs2)) =
+        let
+            !listTN2 = TxAssocMap.toList mp2
+
+            !listTN2' =
+                if length listTN2 > 3 then
+                    let
+                        sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
+                        sort_TokenName (!tn1, _) (!tn2, _) = compare tn1 tn2
+                    in
+                        sortBy sort_TokenName listTN2
+                else
+                    listTN2
+        in
+            listTNEqualsListTN [] listTN2' && listCSEqualsListCS'SmartSorted [] xs2
+
+listCSEqualsListCS'SmartSorted ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2))
+
     | cs1 == cs2 =
         let
             !listTN1 = TxAssocMap.toList mp1
             !listTN2 = TxAssocMap.toList mp2
 
-            !(listTN1', listTN2') = 
+            !(listTN1', listTN2') =
                 if length listTN1 > 3 then
                     let
                         sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
@@ -231,16 +326,24 @@ listCSEqualsListCS'SmartSorted ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2))
                     (listTN1, listTN2)
         in
             listTNEqualsListTN listTN1' listTN2' && listCSEqualsListCS'SmartSorted xs1 xs2
+
     | otherwise =
-        let 
+        let
             listCSEqualsListCS'SmartSorted' :: (LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer) -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
-            listCSEqualsListCS'SmartSorted' (!cs1', !mp1') !xs1' !xs2' ((!cs2', !mp2'):xs3') = 
+
+            listCSEqualsListCS'SmartSorted' (!_, !mp1') !xs1' !xs2' [] =
+                let
+                    !listTN1 = TxAssocMap.toList mp1'
+                in
+                    listTNEqualsListTN listTN1 [] && listCSEqualsListCS'SmartSorted xs1' xs2'
+
+            listCSEqualsListCS'SmartSorted' (!cs1', !mp1') !xs1' !xs2' ((!cs2', !mp2'):xs3') =
                 if cs1' == cs2' then
                     let
                         !listTN1 = TxAssocMap.toList mp1'
                         !listTN2 = TxAssocMap.toList mp2'
 
-                        !(listTN1', listTN2') = 
+                        !(listTN1', listTN2') =
                             if length listTN1 > 3 then
                                 let
                                     sort_TokenName :: (LedgerApiV2.TokenName, a) -> (LedgerApiV2.TokenName, a) -> Ordering
@@ -253,9 +356,11 @@ listCSEqualsListCS'SmartSorted ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2))
                         listTNEqualsListTN listTN1' listTN2' && listCSEqualsListCS'SmartSorted xs1' (xs2'++xs3')
                 else
                     listCSEqualsListCS'SmartSorted' (cs1', mp1') xs1' ((cs2', mp2'):xs2') xs3'
+
             listCSEqualsListCS'SmartSorted' _ _ _ _ = False
         in
             listCSEqualsListCS'SmartSorted' (cs1, mp1) xs1 [(cs2, mp2)] xs2
+
 listCSEqualsListCS'SmartSorted _ _ = False
 
 ---------------------------------------------------
@@ -324,7 +429,7 @@ valueEqualsValue3 (LedgerValue.Value !mp1) (LedgerValue.Value !mp2) =
         valueOfCSAndTNInMap :: TxAssocMap.Map LedgerApiV2.CurrencySymbol (TxAssocMap.Map LedgerApiV2.TokenName Integer) -> LedgerApiV2.CurrencySymbol -> LedgerApiV2.TokenName -> Integer
         valueOfCSAndTNInMap !mpCS !cur !tn =
             case TxAssocMap.lookup cur mpCS of
-                Nothing     -> 0 
+                Nothing     -> 0
                 Just mapTN  -> DataMaybe.fromMaybe 0 (TxAssocMap.lookup tn mapTN)
     in
         length flattenedValue1 == length flattenedValue2 &&
@@ -340,7 +445,7 @@ valueEqualsValue3'Sorted (LedgerValue.Value !mp1) (LedgerValue.Value !mp2) =
         valueOfCSAndTNInMap :: TxAssocMap.Map LedgerApiV2.CurrencySymbol (TxAssocMap.Map LedgerApiV2.TokenName Integer) -> LedgerApiV2.CurrencySymbol -> LedgerApiV2.TokenName -> Integer
         valueOfCSAndTNInMap !mpCS !cur !tn =
             case TxAssocMap.lookup cur mpCS of
-                Nothing     -> 0 
+                Nothing     -> 0
                 Just mapTN  -> DataMaybe.fromMaybe 0 (TxAssocMap.lookup tn mapTN)
     in
         length flattenedValue1 == length flattenedValue2 &&
@@ -355,7 +460,7 @@ valueEqualsValue4 (LedgerValue.Value !mp1) (LedgerValue.Value !mp2) =
         !listCS1 = TxAssocMap.toList mp1
         !listCS2 = TxAssocMap.toList mp2
     in
-        listCS1 `listCSEqualsListCS` listCS2    
+        listCS1 `listCSEqualsListCS` listCS2
 
 ---------------------------------------------------
 
@@ -365,11 +470,11 @@ valueEqualsValue4'Sorted (LedgerValue.Value !mp1) (LedgerValue.Value !mp2) =
     let
         sort_CurrencySymbol :: (LedgerApiV2.CurrencySymbol, a) -> (LedgerApiV2.CurrencySymbol, a) -> Ordering
         sort_CurrencySymbol (!cs1, _) (!cs2, _) = compare cs1 cs2
-        
+
         !listCS1 = sortBy sort_CurrencySymbol (TxAssocMap.toList mp1)
         !listCS2 = sortBy sort_CurrencySymbol (TxAssocMap.toList mp2)
     in
-        listCS1 `listCSEqualsListCS'Sorted` listCS2    
+        listCS1 `listCSEqualsListCS'Sorted` listCS2
 
 ---------------------------------------------------
 
@@ -379,18 +484,18 @@ valueEqualsValue4'SmartSorted (LedgerValue.Value !mp1) (LedgerValue.Value !mp2) 
     let
         sort_CurrencySymbol :: (LedgerApiV2.CurrencySymbol, a) -> (LedgerApiV2.CurrencySymbol, a) -> Ordering
         sort_CurrencySymbol (!cs1, _) (!cs2, _) = compare cs1 cs2
-        
+
         !listCS1 = TxAssocMap.toList mp1
         !listCS2 = TxAssocMap.toList mp2
 
-        (!listCS1',!listCS2') = 
+        (!listCS1',!listCS2') =
             if length listCS1 > 3 then
                 (sortBy sort_CurrencySymbol listCS1, sortBy sort_CurrencySymbol listCS2)
             else
                 (listCS1, listCS2)
 
     in
-        listCS1' `listCSEqualsListCS'SmartSorted` listCS2'   
+        listCS1' `listCSEqualsListCS'SmartSorted` listCS2'
 
 ---------------------------------------------------
 
@@ -962,28 +1067,25 @@ evaluate =
         !value_Tk40 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa8", LedgerApiV2.TokenName "tk40")) 1
 
         !testValuesList = [
-            value_Tk33, value_Tk32, value_Tk31, value_Tk34, value_Tk35, 
-            value_Tk06, value_Tk07, value_Tk10, value_Tk09, value_Tk08, 
-            value_Tk16, value_Tk17, value_Tk18, value_Tk19, value_Tk20, 
-            value_Tk01, value_Tk03, value_Tk02, value_Tk04, value_Tk05, 
-            value_Tk21, value_Tk22, value_Tk23, value_Tk24, value_Tk25, 
-            value_Tk12, value_Tk11, value_Tk13, value_Tk15, value_Tk14, 
-            value_Tk28, value_Tk27, value_Tk26, value_Tk29, value_Tk30, 
+            value_Tk33, value_Tk32, value_Tk31, value_Tk34, value_Tk35,
+            value_Tk06, value_Tk07, value_Tk10, value_Tk09, value_Tk08,
+            value_Tk16, value_Tk17, value_Tk18, value_Tk19, value_Tk20,
+            value_Tk01, value_Tk03, value_Tk02, value_Tk04, value_Tk05,
+            value_Tk21, value_Tk22, value_Tk23, value_Tk24, value_Tk25,
+            value_Tk12, value_Tk11, value_Tk13, value_Tk15, value_Tk14,
+            value_Tk28, value_Tk27, value_Tk26, value_Tk29, value_Tk30,
             value_Tk36, value_Tk40, value_Tk38, value_Tk39, value_Tk37
             ]
 
         !testValues =  [ foldl (<>) mempty (P.take i testValuesList) | i <- [0..40] ]
 
-        testEqMethods :: LedgerValue.Value -> P.IO ()
-        testEqMethods =  evaluateCaseInEqMethods
-
         testMintingPolicies :: LedgerValue.Value -> P.IO ()
         testMintingPolicies = evaluateCaseInMintingPolicy
 
     in do
-        mapM_ testEqMethods testValues
-        mapM_ testMintingPolicies testValues 
-        
+        testEqMethods
+        mapM_ testMintingPolicies testValues
+
 
 ---------------------------------------------------
 
@@ -1016,138 +1118,223 @@ removeElements s (x:xs)
     |s>0 = x : removeElements (s-1) xs
     |otherwise = xs
 
-createControlValue :: Integer -> [LedgerApiV2.Value] -> LedgerApiV2.Value
-createControlValue _ [] = LedgerAda.lovelaceValueOf 0
-createControlValue factIndex' list' =
+createValueFromCombiningValues :: Integer ->  [LedgerApiV2.Value] -> LedgerApiV2.Value
+createValueFromCombiningValues _ [] = mempty
+createValueFromCombiningValues factIndex list =
     let
-        !index = ((factIndex' - 1) `divide` 6) + 1
-        !value = list'!!(index-1)
-    in
-        value <> createControlValue (factIndex' - ((index-1)*6)) (removeElements (index-1) list')
+        fact n' = if n' == 0 then 1 else n' * fact(n'-1)
 
-createControlValueWithADA :: Integer -> [LedgerApiV2.Value] -> LedgerApiV2.Value -> [LedgerApiV2.Value]
-createControlValueWithADA factIndex list valueADA =
-    let
-        createControlValue' = createControlValue factIndex list
-    in
-        [createControlValue' <> valueADA, valueADA <> createControlValue']
+        !len = length list
+        !n = fact (len-1)
 
-{-# INLINABLE checkCases #-}
-checkCases :: (LedgerApiV2.Value -> LedgerApiV2.Value -> Bool) -> LedgerApiV2.Value -> [LedgerApiV2.Value] -> LedgerApiV2.Value -> Bool
-checkCases valueEqualsValue value list valueADA =
-    let
-        cases = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+        !index = ((factIndex - 1) `divide` n) + 1
+        !value = list!!(index-1)
+
+        !list' = removeElements (index-1) list
+        !factIndex' = factIndex - ((index-1)*n)
     in
-        all (valueEqualsValue value) (concat [ createControlValueWithADA i  list valueADA | i <- cases])
+        value <> createValueFromCombiningValues factIndex' list'
+
+-- LedgerApiV2.Value -> LedgerApiV2.Value -> LedgerApiV2.Value -> 
+-- valueADA valueZero1 valueZero2=
+-- createControlValue :: Integer -> [LedgerApiV2.Value] -> LedgerApiV2.Value
+-- createControlValue factIndex list =
+--     let
+
+--     in
+--         createValueFromCombiningValues factIndex list
+        -- [
+        --     createControlValue' <> valueADA <> valueZero1,
+        --     createControlValue' <> valueZero1 <> valueADA,
+        --     valueADA <> createControlValue' <> valueZero1,
+        --     valueADA <> valueZero1 <> createControlValue',
+        --     valueZero1 <> createControlValue' <> valueADA,
+        --     valueZero1 <> valueADA <> createControlValue',
+
+        --     createControlValue' <> valueADA <> valueZero1 <> valueZero2,
+        --     createControlValue' <> valueZero1 <> valueADA <> valueZero2,
+        --     valueADA <> createControlValue' <> valueZero1 <> valueZero2,
+        --     valueADA <> valueZero1 <> createControlValue' <> valueZero2,
+        --     valueZero1 <> createControlValue' <> valueADA <> valueZero2,
+        --     valueZero1 <> valueADA <> createControlValue' <> valueZero2,
+
+        --     valueZero2 <> createControlValue' <> valueADA <> valueZero1,
+        --     valueZero2 <> createControlValue' <> valueZero1 <> valueADA,
+        --     valueZero2 <> valueADA <> createControlValue' <> valueZero1,
+        --     valueZero2 <> valueADA <> valueZero1 <> createControlValue',
+        --     valueZero2 <> valueZero1 <> createControlValue' <> valueADA,
+        --     valueZero2 <> valueZero1 <> valueADA <> createControlValue',
+
+        --     createControlValue' <> valueADA <> valueZero2,
+        --     createControlValue' <> valueZero2 <> valueADA,
+        --     valueADA <> createControlValue' <> valueZero2,
+        --     valueADA <> valueZero2 <> createControlValue',
+        --     valueZero2 <> createControlValue' <> valueADA,
+        --     valueZero2 <> valueADA <> createControlValue',
+
+        --     createControlValue' <> valueADA <> valueZero2 <> valueZero1,
+        --     createControlValue' <> valueZero2 <> valueADA <> valueZero1,
+        --     valueADA <> createControlValue' <> valueZero2 <> valueZero1,
+        --     valueADA <> valueZero2 <> createControlValue' <> valueZero1,
+        --     valueZero2 <> createControlValue' <> valueADA <> valueZero1,
+        --     valueZero2 <> valueADA <> createControlValue' <> valueZero1,
+
+        --     valueZero1 <> createControlValue' <> valueADA <> valueZero2,
+        --     valueZero1 <> createControlValue' <> valueZero2 <> valueADA,
+        --     valueZero1 <> valueADA <> createControlValue' <> valueZero2,
+        --     valueZero1 <> valueADA <> valueZero2 <> createControlValue',
+        --     valueZero1 <> valueZero2 <> createControlValue' <> valueADA,
+        --     valueZero1 <> valueZero2 <> valueADA <> createControlValue'
+        -- ]
+
+checkEqMethod :: (LedgerApiV2.Value -> LedgerApiV2.Value -> Bool) -> [LedgerApiV2.Value] -> LedgerApiV2.Value -> LedgerApiV2.Value -> P.IO Bool
+checkEqMethod valueEqualsValue list1 valueZero1 valueZero2 =
+    let
+        fact n = if n == 0 then 1 else n * fact(n-1)
+
+        cases1 = [1..fact (length list1)]
+        values1 = [ createValueFromCombiningValues i list1  | i <- cases1]
+
+        list2 = (valueZero1:list1)
+        cases2 = [1..fact (length list2)]
+        values2 = [ createValueFromCombiningValues i list2  | i <- cases2]
+
+        list3 = (valueZero2:list1)
+        cases3 = [1..fact (length list3)]
+        values3 = [ createValueFromCombiningValues i list3  | i <- cases3]
+
+        list4 = (valueZero1:valueZero2:list1)
+        cases4 = [1..fact (length list4)]
+        values4 = [ createValueFromCombiningValues i list4 | i <- cases4]
+
+        values = values1 ++ values2 ++ values3 ++ values4
+    in do
+        -- P.putStrLn $ "Comparing: " ++ P.show (length values) ++ " values"
+        return $ all (\value1 -> all (valueEqualsValue value1) values ) values
+
 
 ---------------------------------------------------
 
-evaluateCaseInEqMethods :: LedgerValue.Value -> P.IO ()
-evaluateCaseInEqMethods v =
-    let 
-        caseValue = length $ LedgerValue.flattenValue v
+testEqMethods :: P.IO ()
+testEqMethods =
+    let
 
-        !value1 = v
-        -- value2: a new currency symbol and a new name
-        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
-        -- value3: existing currency symbol (in value2) and same name
-        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
-        -- value4: existing currency symbol (in value1) and a new name
-        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 0
+        -- value1: a new currency symbol
+        !value1 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk00")) 1
+        -- value2: existing currency symbol and a new name
+        !value2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk01")) 1
+
+        -- value3: a new currency symbol
+        !value3 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+        -- value4: existing currency symbol (in value2) and same name
+        !value4 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", LedgerApiV2.TokenName "tk00")) 1
+
+        -- zero in same currency symbol but different name
+        !valueZero1 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", LedgerApiV2.TokenName "tk02")) 0
+
+        -- zero in a new currency symbol 
+        !valueZero2 = LedgerValue.assetClassValue (LedgerValue.AssetClass (LedgerApiV2.CurrencySymbol "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2", LedgerApiV2.TokenName "tk02")) 0
+
         -- value for ADA
         !valueADA = LedgerAda.lovelaceValueOf 433
-
-        -- Output
-        !value_Real = value1 <> value2 <> value3 <> value4 <> valueADA
 
         -- For testing the operators in all possible combinations of mixing the values
         -- all of them are the same, but creates in dofferent order
         -- only operators that can handle des-normalized values van pass this tests 
 
-        !list = [value1, value2, value3, value4]
-
-        !testEqualitiesUnsafe = checkCases normalizedValueEqualsNormalizedValue value_Real list valueADA
-        !testEqualities1 = checkCases valueEqualsValue1 value_Real list valueADA
-        !testEqualities1'Sorted = checkCases valueEqualsValue1'Sorted value_Real list valueADA
-        !testEqualities2 = checkCases valueEqualsValue2 value_Real list valueADA
-        !testEqualities3 = checkCases valueEqualsValue3 value_Real list valueADA
-        !testEqualities3'Sorted = checkCases valueEqualsValue3'Sorted value_Real list valueADA
-        !testEqualities4 = checkCases valueEqualsValue4 value_Real list valueADA
-        !testEqualities4'Sorted = checkCases valueEqualsValue4'Sorted value_Real list valueADA
-        !testEqualities4'SmartSorted = checkCases valueEqualsValue4'SmartSorted value_Real list valueADA
-        !testEqualities5 = checkCases valueEqualsValue5 value_Real list valueADA
-        !testEqualities6 = checkCases valueEqualsValue6 value_Real list valueADA
-        !testEqualities7 = checkCases valueEqualsValue7 value_Real list valueADA
-
-        --------------------------------
+        !list = [value1, value2, value3, value4, valueADA]
 
     in do
+        testEqualitiesUnsafe <- checkEqMethod normalizedValueEqualsNormalizedValue list valueZero1 valueZero2
+        testEqualities1 <- checkEqMethod valueEqualsValue1 list valueZero1 valueZero2
+        testEqualities1'Sorted <- checkEqMethod valueEqualsValue1'Sorted list valueZero1 valueZero2
+        testEqualities2 <- checkEqMethod valueEqualsValue2 list valueZero1 valueZero2
+        testEqualities3 <- checkEqMethod valueEqualsValue3 list valueZero1 valueZero2
+        testEqualities3'Sorted <- checkEqMethod valueEqualsValue3'Sorted list valueZero1 valueZero2
+        testEqualities4 <- checkEqMethod valueEqualsValue4 list valueZero1 valueZero2
+        testEqualities4'Sorted <- checkEqMethod valueEqualsValue4'Sorted list valueZero1 valueZero2
+        testEqualities4'SmartSorted <- checkEqMethod valueEqualsValue4'SmartSorted list valueZero1 valueZero2
+        testEqualities5 <- checkEqMethod valueEqualsValue5 list valueZero1 valueZero2
+        testEqualities6 <- checkEqMethod valueEqualsValue6 list valueZero1 valueZero2
+        testEqualities7 <- checkEqMethod valueEqualsValue7 list valueZero1 valueZero2
 
         -- For Printing the results of eq methods
 
         P.putStrLn "-----"
 
-        P.putStrLn $ "Test Eq: " ++ P.show caseValue
+        P.putStrLn"Testing Eq Methods:"
 
+        P.putStrLn"Testing Method Unsafe..."
         if testEqualitiesUnsafe then
-            P.putStrLn "Method Unsafe. OK"
+            P.putStrLn "OK"
         else
-            P.putStrLn "Method Unsafe. Failed"
+            P.putStrLn "Failed"
 
+        P.putStrLn"Testing Method 1..."
         if testEqualities1 then
-            P.putStrLn "Method 1. OK"
+            P.putStrLn "OK"
         else
-            P.putStrLn "Method 1. Failed"
+            P.putStrLn "Failed"
 
+        P.putStrLn"Testing Method 1'Sorted..."
         if testEqualities1'Sorted then
-            P.putStrLn "Method 1'Sorted. OK"
+            P.putStrLn "OK"
         else
-            P.putStrLn "Method 1'Sorted. Failed"
+            P.putStrLn "Failed"
 
+        P.putStrLn"Testing Method 2..."
         if testEqualities2 then
-            P.putStrLn "Method 2. OK"
+            P.putStrLn "OK"
         else
-            P.putStrLn "Method 2. Failed"
+            P.putStrLn "Failed"
 
+        P.putStrLn"Testing Method 3..."
         if testEqualities3 then
-            P.putStrLn "Method 3. OK"
+            P.putStrLn "OK"
         else
-            P.putStrLn "Method 3. Failed"
+            P.putStrLn "Failed"
 
+        P.putStrLn"Testing Method 3'Sorted..."
         if testEqualities3'Sorted then
-            P.putStrLn "Method 3'Sorted. OK"
+            P.putStrLn "OK"
         else
-            P.putStrLn "Method 3'Sorted. Failed"
+            P.putStrLn "Failed"
 
+        P.putStrLn"Testing Method 4..."
         if testEqualities4 then
-            P.putStrLn "Method 4. OK"
+            P.putStrLn "OK"
         else
-            P.putStrLn "Method 4. Failed"
-            
+            P.putStrLn "Failed"
+
+        P.putStrLn"Testing Method 4'Sorted..."
         if testEqualities4'Sorted then
-            P.putStrLn "Method 4'Sorted. OK"
+            P.putStrLn "OK"
         else
-            P.putStrLn "Method 4'Sorted. Failed"
+            P.putStrLn "Failed"
 
+        P.putStrLn"Testing Method 4'SmartSorted..."
         if testEqualities4'SmartSorted then
-            P.putStrLn "Method 4'SmartSorted. OK"
+            P.putStrLn "OK"
         else
-            P.putStrLn "Method 4'SmartSorted. Failed"
+            P.putStrLn "Failed"
 
+        P.putStrLn"Testing Method 5..."
         if testEqualities5 then
-            P.putStrLn "Method 5. OK"
+            P.putStrLn "OK"
         else
-            P.putStrLn "Method 5. Failed"
+            P.putStrLn "Failed"
 
+        P.putStrLn"Testing Method 6..."
         if testEqualities6 then
-            P.putStrLn "Method 6. OK"
+            P.putStrLn "OK"
         else
-            P.putStrLn "Method 6. Failed"
+            P.putStrLn "Failed"
 
+        P.putStrLn"Testing Method 7..."
         if testEqualities7 then
-            P.putStrLn "Method 7. OK"
+            P.putStrLn "OK"
         else
-            P.putStrLn "Method 7. Failed"
+            P.putStrLn "Failed"
 
 ---------------------------------------------------
 
@@ -1406,7 +1593,7 @@ evaluateCaseInMintingPolicy v =
                     (LedgerApiV2.TxId "555")
                 )
                 mockScriptPurposeMint3
-        
+
         mockCtx3'Sorted :: LedgerApiV2.ScriptContext
         mockCtx3'Sorted =
             LedgerApiV2.ScriptContext

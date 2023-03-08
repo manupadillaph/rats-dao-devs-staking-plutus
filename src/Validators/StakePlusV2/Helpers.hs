@@ -425,46 +425,77 @@ flattenValueWithoutZeros (LedgerValue.Value !mp) =
 
 ---------------------------------------------------
 
+
 {-# INLINABLE listTNEqualsListTN #-}
 listTNEqualsListTN :: [(LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.TokenName, Integer)] -> Bool
+
 listTNEqualsListTN [] [] = True
-listTNEqualsListTN [] ((_, !am2):(!xs2)) 
-    | am2 == 0 =                    
-        listTNEqualsListTN [] xs2 
-    | otherwise = 
-        False
-listTNEqualsListTN ((!tn1, !am1):(!xs1)) ((!tn2, !am2):(!xs2)) 
-    | am1 == 0 =                    
-        listTNEqualsListTN xs1 ((tn2, am2):xs2) 
-    | tn1 == tn2 && am1 == am2 =    
+
+listTNEqualsListTN [] ((_, !am2):(!xs2)) =
+    am2 == 0 && listTNEqualsListTN [] xs2
+
+listTNEqualsListTN ((_, !am1):(!xs1)) [] =
+    am1 == 0 && listTNEqualsListTN xs1 []
+
+listTNEqualsListTN ((!tn1, !am1):(!xs1)) ((!tn2, !am2):(!xs2))
+    | am1 == 0 =
+        listTNEqualsListTN xs1 ((tn2, am2):xs2)
+
+    | am2 == 0 =
+        listTNEqualsListTN ((tn1, am1):xs1) xs2
+
+    | tn1 == tn2 && am1 == am2 =
         listTNEqualsListTN xs1 xs2
+
     | otherwise =
-        let 
+        let
             listTNEqualsListTN' :: (LedgerApiV2.TokenName, Integer) -> [(LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.TokenName, Integer)] -> [(LedgerApiV2.TokenName, Integer)] -> Bool
-            listTNEqualsListTN' (!tn1', !am1') !xs1' !xs2' ((!tn2', !am2'):(!xs3')) 
+            listTNEqualsListTN' (!tn1', !am1') !xs1' !xs2' ((!tn2', !am2'):(!xs3'))
+                | am2' == 0                     = listTNEqualsListTN' (tn1', am1') xs1' xs2' xs3'
                 | tn1' == tn2' && am1' == am2'  = listTNEqualsListTN xs1' (xs2'++xs3')
                 | otherwise                     = listTNEqualsListTN' (tn1', am1') xs1' ((tn2', am2'):xs2') xs3'
             listTNEqualsListTN' _ _ _ _ = False
         in
             listTNEqualsListTN' (tn1, am1) xs1 [(tn2, am2)] xs2
-listTNEqualsListTN _ _ = False
 
--------------------------------------------------------------------------------------------
+---------------------------------------------------
 
 {-# INLINABLE listCSEqualsListCS #-}
 listCSEqualsListCS :: [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
 listCSEqualsListCS [] [] = True
-listCSEqualsListCS ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2)) 
+
+listCSEqualsListCS ((_, !mp1):(!xs1)) [] =
+        let
+            !listTN1 = TxAssocMap.toList mp1
+        in
+            listTNEqualsListTN listTN1 [] && listCSEqualsListCS xs1 []
+
+listCSEqualsListCS [] ((_, !mp2):(!xs2)) =
+        let
+            !listTN2 = TxAssocMap.toList mp2
+        in
+            listTNEqualsListTN [] listTN2 && listCSEqualsListCS [] xs2
+
+listCSEqualsListCS ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2))
+
     | cs1 == cs2 =
         let
             !listTN1 = TxAssocMap.toList mp1
             !listTN2 = TxAssocMap.toList mp2
         in
             listTNEqualsListTN listTN1 listTN2 && listCSEqualsListCS xs1 xs2
+
     | otherwise =
-        let 
+        let
             listCSEqualsListCS' :: (LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer) -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> [(LedgerApiV2.CurrencySymbol, TxAssocMap.Map LedgerApiV2.TokenName Integer)] -> Bool
-            listCSEqualsListCS' (!cs1', !mp1') !xs1' !xs2' ((!cs2', !mp2'):xs3') = 
+
+            listCSEqualsListCS' (!_, !mp1') !xs1' !xs2' [] =
+                let
+                    !listTN1 = TxAssocMap.toList mp1'
+                in
+                    listTNEqualsListTN listTN1 [] && listCSEqualsListCS xs1' xs2'
+
+            listCSEqualsListCS' (!cs1', !mp1') !xs1' !xs2' ((!cs2', !mp2'):xs3') =
                 if cs1' == cs2' then
                     let
                         !listTN1 = TxAssocMap.toList mp1'
@@ -473,10 +504,8 @@ listCSEqualsListCS ((!cs1, !mp1):(!xs1)) ((!cs2, !mp2):(!xs2))
                         listTNEqualsListTN listTN1 listTN2 && listCSEqualsListCS xs1' (xs2'++xs3')
                 else
                     listCSEqualsListCS' (cs1', mp1') xs1' ((cs2', mp2'):xs2') xs3'
-            listCSEqualsListCS' _ _ _ _ = False
         in
             listCSEqualsListCS' (cs1, mp1) xs1 [(cs2, mp2)] xs2
-listCSEqualsListCS _ _ = False
 
 -------------------------------------------------------------------------------------------
 
